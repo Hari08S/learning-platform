@@ -1,0 +1,641 @@
+/* src/styles/courses.css
+   Full styling for Courses list and CourseDetail pages.
+   Drop this file in src/styles/courses.css (replaces prior versions).
+*/
+
+/* ---------- Variables (colors + spacing) ---------- */
+:root{
+  --bg: #f8fafc;
+  --card-bg: #ffffff;
+  --muted: #64748b;
+  --text: #0f172a;
+  --accent-purple: #7C5CE6;
+  --accent-purple-2: #6D28D9;
+  --green: #065F46;
+  --green-light: #10B981;
+  --shadow: 0 10px 30px rgba(2,6,23,0.06);
+  --radius-lg: 14px;
+}
+
+/* ---------- Page wrappers ---------- */
+.courses-page, .course-detail-page {
+  background: linear-gradient(180deg, rgba(248,252,250,1), rgba(255,255,255,1));
+  padding-bottom: 48px;
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* ---------- Container ---------- */
+.container {
+  width: 92%;
+  max-width: 1300px;
+  margin: 0 auto;
+}
+
+/* ---------- Back / Outline button (shared) ---------- */
+.btn.outline {
+  padding: 10px 18px;
+  border-radius: 10px;
+  background: var(--card-bg);
+  border: 2px solid var(--green);
+  color: var(--green);
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .18s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn.outline:hover{
+  background: var(--green);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+/* ---------- Primary button (shared) ---------- */
+.btn.primary {
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: linear-gradient(90deg,var(--accent-purple),var(--accent-purple-2));
+  color: #fff;
+  border: none;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity .16s ease, transform .12s ease;
+}
+
+.btn.primary:hover{ opacity: .95; transform: translateY(-2px); }
+
+/* ---------- Small outline button (preview) ---------- */
+.btn.outline.small {
+  padding: 6px 12px;
+  font-size: 13px;
+  border-radius: 8px;
+}
+
+/* ---------- HERO (Courses list) ---------- */
+.courses-hero {
+  padding: 56px 0 18px;
+}
+
+.courses-title {
+  font-size: 3.25rem;
+  text-align: center;
+  margin: 6px 0;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.courses-title .bold { color: var(--accent-purple); font-weight: 800; }
+
+.courses-sub {
+  text-align: center;
+  color: var(--muted);
+  margin-top: 8px;
+  margin-bottom: 24px;
+}
+
+/* ---------- Controls (search + filters) ---------- */
+.courses-controls {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  justify-content: space-between;
+  margin: 18px 0 28px;
+  flex-wrap: wrap;
+}
+
+.search-wrap { flex: 1 1 60%; min-width: 260px; }
+.course-search {
+  width: 100%;
+  padding: 14px 18px;
+  border-radius: 12px;
+  border: none;
+  box-shadow: var(--shadow);
+  font-size: 1rem;
+  color: #374151;
+  background: #fff;
+}
+
+.filters { display: flex; gap: 14px; align-items: center; flex: 0 0 auto; }
+.filter-item { display: flex; flex-direction: column; gap: 6px; }
+.filter-item label { font-weight: 600; color: #111827; font-size: 0.9rem; }
+.filter-select {
+  min-width: 160px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(15,23,42,0.06);
+  background: #fff;
+  font-size: 14px;
+}
+
+/* ---------- Results meta ---------- */
+.results-meta { color: #334155; margin-top: 8px; }
+
+/* ---------- Courses grid ---------- */
+.courses-grid-wrap { padding-top: 8px; }
+.courses-grid {
+  display: grid;
+  /* default courses list: 3 columns */
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+}
+
+/* -------------------------
+ Dashboard grid & small-card tweaks
+ ------------------------- */
+
+/* Dashboard: Force exactly 3 columns on wide screens (fixed-size look) */
+.courses-grid.dashboard {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr); /* exactly 3 per row on desktop */
+  gap: 26px;
+  align-items: start;
+}
+
+/* small-card variant used by dashboard */
+.course-card.small-card {
+  display: flex;
+  flex-direction: column;
+  height: 430px; /* fixed visual height so rows align */
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* keep the media area constant and use an inner img for consistent cropping */
+.course-card.small-card .card-media {
+  height: 160px;
+  background: #f3f4f6;
+  display: block;
+}
+.course-card.small-card .card-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* body grows, actions pinned to bottom */
+.course-card.small-card .card-body {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+}
+
+/* push actions to bottom */
+.course-card.small-card .card-actions {
+  margin-top: auto;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+/* tighten button sizes */
+.course-card.small-card .btn.primary { padding: 12px 14px; border-radius: 10px; }
+.course-card.small-card .btn.outline { padding: 10px 12px; border-radius: 10px; }
+
+/* limit long titles to two lines to avoid tall cards */
+.course-card.small-card .card-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+/* Dashboard button sizing: primary expands, cancel fixed */
+.course-card.small-card .card-actions .btn.primary {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  font-weight: 700;
+}
+.course-card.small-card .card-actions .btn.outline {
+  flex: 0 0 140px;
+  text-align: center;
+}
+
+/* responsive breakpoints */
+@media (max-width: 1100px) {
+  .courses-grid { grid-template-columns: repeat(2, 1fr); }
+  .courses-grid.dashboard { grid-template-columns: repeat(2, 1fr); }
+  .detail-grid { grid-template-columns: 1fr 320px; }
+}
+
+@media (max-width: 820px) {
+  .courses-controls { flex-direction: column; align-items: stretch; gap: 12px; }
+  .filters { justify-content: space-between; width: 100%; }
+  .courses-grid { grid-template-columns: 1fr; }
+  .courses-grid.dashboard { grid-template-columns: 1fr; }
+  .detail-grid { grid-template-columns: 1fr; }
+  .detail-sidebar { position: static; top: auto; max-width: 100%; }
+  .hero-overlay { padding: 22px; }
+  .detail-hero { height: 220px; }
+  .course-card.small-card { height: auto; } /* allow stacking on small screens */
+}
+
+@media (max-width: 520px) {
+  .course-card.small-card .card-actions {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .course-card.small-card .card-actions .btn.primary,
+  .course-card.small-card .card-actions .btn.outline {
+    width: 100%;
+    flex: none;
+  }
+  .course-card.small-card .card-actions .btn.outline { min-width: 0; }
+}
+
+@media (max-width: 420px) {
+  .container { width: 95%; }
+  .courses-title { font-size: 2rem; }
+  .detail-hero { height: 180px; }
+  .card-media { height: 150px; }
+}
+
+/* ---------- Course card base styles (kept from original) ---------- */
+.course-card {
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  transition: transform .16s ease, box-shadow .16s ease;
+}
+.course-card:hover { transform: translateY(-6px); box-shadow: 0 18px 40px rgba(2,6,23,0.08); }
+
+.card-media {
+  height: 180px;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+/* Tag and rating inside media */
+.card-tag {
+  position: absolute;
+  left: 16px;
+  top: 14px;
+  background: rgba(255,255,255,0.95);
+  color: #6b7280;
+  padding: 6px 10px;
+  border-radius: 18px;
+  font-weight: 700;
+  text-transform: lowercase;
+  font-size: 0.85rem;
+  box-shadow: 0 8px 24px rgba(2,6,23,0.06);
+}
+
+.card-rating {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  background: #fff;
+  padding: 6px 8px;
+  border-radius: 12px;
+  font-weight: 800;
+  box-shadow: 0 8px 20px rgba(2,6,23,0.06);
+}
+
+/* Body */
+.card-body { padding: 18px; display: flex; flex-direction: column; gap: 12px; flex: 1 1 auto; }
+.card-title { font-size: 1.12rem; margin-bottom: 4px; color: var(--text); font-weight: 800; }
+.card-author { color: #6B7280; font-size: 0.95rem; }
+.card-meta { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+
+/* meta items */
+.meta-item { color: #6B7280; font-size: 0.95rem; }
+
+/* level badge accepts lowercase classes from JS (beginner/intermediate/advanced) */
+.level-badge {
+  margin-left: auto;
+  padding: 6px 10px;
+  border-radius: 16px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+/* color per level (lowercase) */
+.level-badge.beginner {
+  color: #065F46;
+  background: rgba(16,185,129,0.08);
+  border: 1px solid rgba(16,185,129,0.12);
+}
+.level-badge.intermediate {
+  color: #1e40af;
+  background: rgba(59,130,246,0.06);
+  border: 1px solid rgba(59,130,246,0.10);
+}
+.level-badge.advanced {
+  color: #7C3AED;
+  background: rgba(124,58,237,0.06);
+  border: 1px solid rgba(124,58,237,0.09);
+}
+
+/* bottom row */
+.card-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  gap: 12px;
+}
+
+.price { font-weight: 800; font-size: 1rem; color: var(--text); }
+.trial { font-size: 0.85rem; color: var(--green-light); margin-top: 4px; }
+
+.btn.course-btn {
+  padding: 10px 14px;
+  border-radius: 10px;
+  text-decoration: none;
+  background: linear-gradient(90deg,var(--accent-purple),var(--accent-purple-2));
+  color: white;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* no-results */
+.no-results { padding: 40px; text-align: center; color: #6B7280; }
+
+/* ---------- Detail page layout ---------- */
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 28px;
+  align-items: start;
+  margin-top: 12px;
+}
+
+.detail-main { width: 100%; }
+
+.detail-hero {
+  height: 260px;
+  border-radius: var(--radius-lg);
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow);
+}
+
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  padding: 26px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 10px;
+  background: linear-gradient(180deg, rgba(0,0,0,0.12), rgba(0,0,0,0.45));
+  color: #fff;
+}
+
+.hero-tag {
+  display: inline-block;
+  background: rgba(255,255,255,0.9);
+  color: #4338ca;
+  padding: 8px 12px;
+  border-radius: 20px;
+  font-weight: 700;
+  width: fit-content;
+}
+
+.detail-title { font-size: 32px; font-weight: 800; line-height: 1.02; margin: 0; }
+.detail-author { font-size: 14px; opacity: 0.95; margin-top: 6px; }
+
+.detail-stats {
+  display: flex;
+  gap: 22px;
+  margin: 18px 0;
+  color: #334155;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.detail-stats .stat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.detail-stats .level {
+  background: #dcfce7;
+  padding: 6px 10px;
+  border-radius: 20px;
+  color: #16a34a;
+  font-weight: 700;
+}
+
+.tabs { display: flex; gap: 12px; margin: 20px 0; flex-wrap: wrap; }
+.tab {
+  padding: 12px 18px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  border: 1px solid transparent;
+  font-weight: 700;
+  cursor: pointer;
+  color: #475569;
+}
+.tab.active {
+  background: white;
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.tab-panel { margin-top: 12px; }
+
+.lead { color: var(--muted); margin-bottom: 18px; font-size: 1rem; line-height: 1.6; }
+.learn-list { list-style: none; padding-left: 0; margin: 12px 0 20px; display: grid; grid-template-columns: 1fr; gap: 10px; }
+.learn-list li { padding-left: 0; color: var(--text); }
+
+.curriculum { margin-top: 12px; }
+.curriculum-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  padding: 14px;
+  margin-bottom: 12px;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 6px 18px rgba(2,6,23,0.04);
+}
+
+.curriculum-left { display: flex; align-items: center; gap: 12px; }
+.num {
+  width: 38px;
+  height: 38px;
+  background: #eef2ff;
+  color: #4338ca;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+}
+
+.curriculum-body { flex: 1 1 auto; }
+.curriculum-title { font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.curriculum-meta { color: var(--muted); font-size: 0.95rem; display:flex; gap:8px; align-items:center; }
+
+.preview {
+  background: var(--green-light);
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-weight: 800;
+  font-size: 0.8rem;
+}
+
+.locked { color: #94a3b8; font-weight: 600; }
+
+.curriculum-action { min-width: 110px; text-align: right; }
+
+.instructor-card {
+  background: #fff;
+  padding: 18px;
+  border-radius: 12px;
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  box-shadow: var(--shadow);
+}
+
+.avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg,#6366F1,#9333EA);
+  color: white;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight: 800;
+  font-size: 1.2rem;
+}
+
+.instr-name { font-weight: 800; font-size: 1.1rem; color: var(--text); }
+.instr-bio { color: var(--muted); margin-top: 6px; }
+.instr-stats { margin-top: 8px; color:#334155; font-weight:700; }
+
+.detail-sidebar { width: 100%; max-width: 360px; }
+.price-card {
+  background: #fff;
+  padding: 22px;
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  position: sticky;
+  top: 24px;
+}
+
+.price-card .price { font-size: 28px; font-weight: 900; color: var(--text); }
+.price-card .trial { color: var(--green-light); font-weight: 700; margin-top: 8px; }
+.price-card hr { border: none; height: 1px; background: rgba(15,23,42,0.06); margin: 20px 0; }
+
+.includes-list { list-style: none; padding-left: 0; margin: 0; }
+.includes-list li { margin-bottom: 10px; color: var(--text); }
+
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+
+/* hero image and overlay */
+.detail-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  height: 260px;
+  background: linear-gradient(180deg, rgba(0,0,0,0.06), rgba(0,0,0,0.12));
+}
+
+.detail-hero-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+  transform-origin: center;
+  transition: transform 0.6s ease;
+}
+
+.detail-hero:hover .detail-hero-img {
+  transform: scale(1.03);
+}
+
+.hero-overlay {
+  position: relative;
+  z-index: 2;
+  padding: 28px 28px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  color: #fff;
+  background: linear-gradient(180deg, rgba(0,0,0,0.05), rgba(0,0,0,0.45));
+}
+.detail-title {
+  font-size: 2rem;
+  margin: 0;
+  font-weight: 800;
+  color: #fff;
+}
+.hero-tag {
+  display:inline-block;
+  background: rgba(255,255,255,0.92);
+  color:#6b7280;
+  padding:6px 10px;
+  border-radius:18px;
+  font-weight:700;
+  margin-bottom: 12px;
+}
+.detail-author { color: rgba(255,255,255,0.9); margin-top: 6px; font-weight: 500; }
+
+/* --- New section: timeline / achievements / quick-actions --- */
+
+.quick-actions-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.achievements-row {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.timeline-item {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: #fff;
+  border-radius: 10px;
+  padding: 12px;
+  box-shadow: 0 6px 18px rgba(2,6,23,0.04);
+}
+
+/* small niceties */
+.timeline-item .time { color: #94A3B8; font-size: 13px; }
+.timeline-item .title { font-weight: 800; }
+
+/* ensure dashboard cards align exactly with fixed height */
+.course-card.small-card { height: 430px; }
+
+/* ensure the grid always has 3 columns on wide screens, collapses via media queries */
+@media (min-width: 1100px) {
+  .dash-container .courses-grid.dashboard, .dash-container > div > .courses-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}

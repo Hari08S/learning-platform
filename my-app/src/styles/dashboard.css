@@ -1,0 +1,39 @@
+.dash-container { color: var(--upwise-dark); }
+
+/* Top stat cards */
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 12px;
+}
+.dash-card {
+  background: var(--card-bg);
+  padding: 1.25rem;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(2,6,23,0.04);
+}
+.dash-card h3 { color: #065F46; margin-bottom: 6px; font-size: 0.95rem; }
+.dash-num { font-size: 1.8rem; font-weight: 800; margin-top: 6px; color: #064e3b; }
+.highlight { color: #10B981; }
+
+/* continue learning box */
+.dash-box {
+  background: #F8FFFB;
+  padding: 1.6rem;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(2,6,23,0.04);
+  text-align: center;
+}
+
+/* achievement cards */
+.ach-card { flex: 1; padding: 14px; border-radius: 10px; color: white; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.yellow { background: #FBBF24; }
+.green { background: #34D399; }
+.purple { background: #A78BFA; }
+
+@media (max-width: 900px) {
+  .dash-box { margin-bottom: 16px; }
+  .dash-box, aside { grid-column: 1 / -1; }
+  .container { padding: 0 16px; }
+}

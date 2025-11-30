@@ -1,0 +1,44 @@
+// server/models/User.js
+const mongoose = require('mongoose');
+
+const PurchasedSchema = new mongoose.Schema({
+  courseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Course' },
+  price: Number,
+  purchasedAt: { type: Date, default: Date.now },
+  status: { type: String, enum: ['active', 'cancelled'], default: 'active' },
+  cancelledAt: Date
+}, { _id: false });
+
+const ProgressSchema = new mongoose.Schema({
+  courseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Course' },
+  percent: { type: Number, default: 0 },
+  hoursLearned: { type: Number, default: 0 },
+  lastSeenAt: Date,
+  completedAt: Date
+}, { _id: false });
+
+const BadgeSchema = new mongoose.Schema({
+  id: String,
+  title: String,
+  icon: String,
+  earnedAt: Date,
+  description: String
+}, { _id: false });
+
+const UserSchema = new mongoose.Schema({
+  name: { type: String, required: true, trim: true, maxlength: 100 },
+  email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+  passwordHash: { type: String, required: true },
+  purchasedCourses: [PurchasedSchema],
+  progress: [ProgressSchema],
+  badges: [BadgeSchema], // optional, may be empty
+  certificates: [{ // optional if you ever store issued certificates
+    courseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Course' },
+    filename: String,
+    issuedOn: Date,
+    certId: String
+  }],
+  createdAt: { type: Date, default: Date.now }
+});
+
+module.exports = mongoose.model('User', UserSchema);
