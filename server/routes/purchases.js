@@ -1,4 +1,3 @@
-// server/routes/purchases.js
 const express = require('express');
 const router = express.Router();
 const requireAuth = require('../middleware/auth');
@@ -184,17 +183,63 @@ router.get('/me/purchases', requireAuth, async (req, res) => {
 // GET /api/me/progress  -> returns aggregated progress + purchased courses
 router.get('/me/progress', requireAuth, async (req, res) => {
   try {
+    // populate both purchased and progress courseId if possible
     const user = await User.findById(req.userId).populate('purchasedCourses.courseId').populate('progress.courseId').lean();
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    const activeCourses = (user.purchasedCourses || []).filter(pc => (pc.status || 'active') === 'active').length;
-    const hoursLearned = (user.progress || []).reduce((s, p) => s + (p.hoursLearned || 0), 0);
-    const completedCount = (user.progress || []).filter(p => p.completedAt).length;
+    // Normalize purchasedCourses to stable shape with courseId as string
+    const purchased = (user.purchasedCourses || []).map(pc => {
+      const courseObj = (pc.courseId && pc.courseId.title) ? pc.courseId : (pc.courseId || {});
+      const courseIdStr = pc.courseId && (pc.courseId._id || pc.courseId) ? String(pc.courseId._id || pc.courseId) : String(pc.courseId || '');
+      return {
+        courseId: courseIdStr,
+        title: courseObj.title || (pc.title || ''),
+        author: courseObj.author || '',
+        img: courseObj.img || '/logo.png',
+        price: pc.price != null ? pc.price : (courseObj.price || ''),
+        status: pc.status || 'active',
+        purchasedAt: pc.purchasedAt,
+        cancelledAt: pc.cancelledAt || null,
+        raw: pc
+      };
+    });
+
+    // Normalize progress entries
+    const progress = (user.progress || []).map(p => {
+      const cid = p.courseId && (p.courseId._id || p.courseId) ? String(p.courseId._id || p.courseId) : String(p.courseId || '');
+      const completedLessons = Array.isArray(p.completedLessons) ? p.completedLessons : [];
+      return {
+        courseId: cid,
+        percent: typeof p.percent === 'number' ? p.percent : 0,
+        hoursLearned: p.hoursLearned || 0,
+        lastSeenAt: p.lastSeenAt || null,
+        completedAt: p.completedAt || null,
+        completedLessons
+      };
+    });
+
+    // Recompute percent server-side where possible (safe loop)
+    for (let i = 0; i < progress.length; i++) {
+      try {
+        const pr = progress[i];
+        if (!pr || !pr.courseId) continue;
+        const course = await Course.findById(pr.courseId).lean();
+        const total = Array.isArray(course?.curriculum) ? course.curriculum.length : 0;
+        const done = Array.isArray(pr.completedLessons) ? pr.completedLessons.length : 0;
+        if (total > 0) pr.percent = Math.round((done / total) * 100);
+      } catch (e) {
+        // ignore errors for an individual course
+      }
+    }
+
+    const activeCourses = purchased.filter(pc => (pc.status || 'active') === 'active').length;
+    const hoursLearned = progress.reduce((s, p) => s + (p.hoursLearned || 0), 0);
+    const completedCount = progress.filter(p => p.completedAt).length;
     const streakDays = computeStreak(user.progress || []);
 
-    res.json({
-      purchasedCourses: user.purchasedCourses || [],
-      progress: user.progress || [],
+    return res.json({
+      purchasedCourses: purchased,
+      progress,
       activeCourses,
       hoursLearned,
       completedCount,
@@ -224,7 +269,7 @@ router.patch('/me/progress', requireAuth, async (req, res) => {
     if (markComplete) p.completedAt = new Date();
 
     await user.save();
-    res.json({ progress: user.progress });
+    return res.json({ progress: user.progress });
   } catch (err) {
     console.error('me.progress.patch', err);
     return res.status(500).json({ message: 'Server error' });

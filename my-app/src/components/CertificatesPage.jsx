@@ -1,14 +1,16 @@
 // src/components/CertificatesPage.jsx
 import React, { useEffect, useState, useCallback } from "react";
 import { generateAndDownloadCertificate } from "./CertificateGenerator";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 export default function CertificatesPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
-  const [rows, setRows] = useState([]); // { course, pct, status, purchasedAt }
+  const [rows, setRows] = useState([]); // { course: {...}, pct, status, purchasedAt, completedAt }
+
+  const navigate = useNavigate();
 
   // user name (for cert) - read from localStorage user object if present
   const user = (() => {
@@ -27,31 +29,37 @@ export default function CertificatesPage() {
       const token = localStorage.getItem("token");
       if (!token) throw new Error("Not authenticated");
 
-      const res = await fetch(`${API_BASE}/api/me/purchases`, {
+      // Use /api/me/progress which returns progress and purchasedCourses with normalized ids
+      const res = await fetch(`${API_BASE}/api/me/progress`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       const ct = res.headers.get("content-type") || "";
       if (ct.includes("text/html")) {
         // defensive: backend returned HTML (index.html or error page)
-        throw new Error("Server returned HTML for /api/me/purchases — API missing or misconfigured.");
+        throw new Error("Server returned HTML for /api/me/progress — API missing or misconfigured.");
       }
 
       if (!res.ok) {
         const json = ct.includes("application/json") ? await res.json() : null;
+        // if returned message in json, propagate
         throw new Error((json && json.message) || `Server error ${res.status}`);
       }
 
       const js = await res.json();
-      // js: { purchasedCourses: [...], progress: [...] }
+      // js: { purchasedCourses: [...], progress: [...], activeCourses, ... }
+
       const progressMap = (js.progress || []).reduce((acc, p) => {
+        // p.courseId already normalized to string on server
+        if (!p || !p.courseId) return acc;
         acc[String(p.courseId)] = p;
         return acc;
       }, {});
 
-      // Only include active purchases — exclude cancelled
+      // Only include active purchases (exclude cancelled) AND only where course metadata is resolvable
+      // purchasedCourses from /me/progress is already shaped by server: courseId, title, img, status, etc.
       const out = (js.purchasedCourses || [])
-        .filter(pc => (pc.status || "active") === "active")
+        .filter(pc => (pc.status || "active") === "active" && Boolean(pc.courseId) && (pc.title || pc.img))
         .map((pc) => {
           const courseObj = {
             id: pc.courseId,
@@ -59,10 +67,12 @@ export default function CertificatesPage() {
             author: pc.author || "",
             img: pc.img || "/logo.png",
           };
-          const pct = (progressMap[String(pc.courseId)] && progressMap[String(pc.courseId)].percent) || 0;
+          const prog = progressMap[String(pc.courseId)] || { percent: 0, completedAt: null };
+          const pct = typeof prog.percent === "number" ? prog.percent : Number(prog.percent) || 0;
           return {
             course: courseObj,
             pct,
+            completedAt: prog.completedAt || null,
             status: pc.status || "active",
             purchasedAt: pc.purchasedAt ? new Date(pc.purchasedAt).toISOString() : null,
             price: pc.price,
@@ -86,15 +96,17 @@ export default function CertificatesPage() {
       await load();
     })();
 
-    // refresh when purchases change elsewhere
+    // refresh when purchases/progress change elsewhere
     function onUpdated() {
       load().catch((e) => console.warn("refresh certificates failed", e));
     }
     window.addEventListener("purchases.updated", onUpdated);
+    window.addEventListener("user.updated", onUpdated);
 
     return () => {
       mounted = false;
       window.removeEventListener("purchases.updated", onUpdated);
+      window.removeEventListener("user.updated", onUpdated);
     };
   }, [load]);
 
@@ -137,17 +149,17 @@ export default function CertificatesPage() {
                 Please <Link to="/login">sign in</Link> to view your purchased courses.
               </>
             ) : (
-              <>You have no purchased courses yet.</>
+              <>You have no purchased courses yet or the server returned unexpected data.</>
             )}
           </div>
         </>
       ) : rows.length === 0 ? (
         <div style={{ color: "#64748B" }}>
-          You have no purchased courses yet. Browse <Link to="/courses">courses</Link> to get started.
+          You have no purchased courses that are eligible for certificates. Browse <Link to="/courses">courses</Link> to get started.
         </div>
       ) : (
         <div style={{ display: "grid", gap: 16 }}>
-          {rows.map(({ course, pct, status, purchasedAt }) => (
+          {rows.map(({ course, pct, status, purchasedAt, completedAt }) => (
             <div key={String(course.id)} style={{
               display: "flex",
               gap: 16,
@@ -181,15 +193,19 @@ export default function CertificatesPage() {
                 </div>
               </div>
 
-              <div style={{ minWidth: 160 }}>
-                {pct >= 100 ? (
+              <div style={{ minWidth: 220 }}>
+                {pct >= 100 || completedAt ? (
                   <button className="btn primary" onClick={() => handleDownload(course)} disabled={busy === course.id} style={{ width: "100%" }}>
                     {busy === course.id ? "Preparing…" : "Download Certificate"}
                   </button>
                 ) : (
                   <div style={{ display: "grid", gap: 8 }}>
-                    <div style={{ fontSize: 13, color: "#94A3B8" }}>Complete the course to unlock</div>
-                    <Link className="btn outline" to={`/courses/${course.id}`} style={{ textAlign: "center" }}>Continue Course</Link>
+                    <div style={{ fontSize: 13, color: "#94A3B8" }}>Complete the course and pass the course quiz to unlock your certificate.</div>
+
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <Link className="btn outline" to={`/courses/${course.id}`} style={{ textAlign: "center", flex: 1 }}>Continue Course</Link>
+                      <Link className="btn primary" to={`/courses/${course.id}/quiz`} style={{ textAlign: "center", flex: 1 }}>Take Quiz</Link>
+                    </div>
                   </div>
                 )}
               </div>

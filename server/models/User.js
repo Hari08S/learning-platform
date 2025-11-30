@@ -1,4 +1,3 @@
-// server/models/User.js
 const mongoose = require('mongoose');
 
 const PurchasedSchema = new mongoose.Schema({
@@ -14,7 +13,8 @@ const ProgressSchema = new mongoose.Schema({
   percent: { type: Number, default: 0 },
   hoursLearned: { type: Number, default: 0 },
   lastSeenAt: Date,
-  completedAt: Date
+  completedAt: Date,
+  completedLessons: [{ type: mongoose.Schema.Types.Mixed }]
 }, { _id: false });
 
 const BadgeSchema = new mongoose.Schema({
@@ -31,8 +31,8 @@ const UserSchema = new mongoose.Schema({
   passwordHash: { type: String, required: true },
   purchasedCourses: [PurchasedSchema],
   progress: [ProgressSchema],
-  badges: [BadgeSchema], // optional, may be empty
-  certificates: [{ // optional if you ever store issued certificates
+  badges: [BadgeSchema],
+  certificates: [{
     courseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Course' },
     filename: String,
     issuedOn: Date,

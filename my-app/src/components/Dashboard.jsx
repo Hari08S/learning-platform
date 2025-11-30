@@ -1,5 +1,4 @@
-// src/components/Dashboard.jsx
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import '../styles/courses.css';
 
@@ -15,43 +14,37 @@ const Dashboard = () => {
   const [userName, setUserName] = useState('');
   const [loadingUser, setLoadingUser] = useState(true);
 
-  // stats
   const [activeCourses, setActiveCourses] = useState(0);
   const [completedCount, setCompletedCount] = useState(0);
   const [hoursLearned, setHoursLearned] = useState(0);
   const [streakDays, setStreakDays] = useState(0);
 
-  // purchased courses list when logged in
   const [purchasedCourses, setPurchasedCourses] = useState([]);
   const [loadingPurchases, setLoadingPurchases] = useState(true);
   const [errMsg, setErrMsg] = useState('');
 
-  // new small pieces
   const [timeline, setTimeline] = useState([]);
   const [badges, setBadges] = useState([]);
   const [lastCourseId, setLastCourseId] = useState(null);
 
+  // Load dashboard state from server
   const loadFromServer = async (token) => {
     setLoadingUser(true);
     setLoadingPurchases(true);
     setErrMsg('');
     try {
+      // optional me endpoint to show name
       try {
-        const meRes = await fetch(`${API_BASE}/api/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const meRes = await fetch(`${API_BASE}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` }});
         if (meRes.ok) {
-          const meData = await meRes.json();
-          setUserName(meData.user?.name || meData.user?.email || '');
+          const meJson = await meRes.json();
+          setUserName(meJson.user?.name || meJson.user?.email || '');
         }
-      } catch (er) {
-        console.warn('Warning: /api/auth/me fetch failed', er);
+      } catch (e) {
+        // non-fatal
       }
 
-      const progRes = await fetch(`${API_BASE}/api/me/progress`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
+      const progRes = await fetch(`${API_BASE}/api/me/progress`, { headers: { Authorization: `Bearer ${token}` }});
       if (!progRes.ok) {
         if (progRes.status === 401 || progRes.status === 403) {
           setErrMsg('You need to sign in to view your dashboard.');
@@ -62,42 +55,90 @@ const Dashboard = () => {
           setStreakDays(0);
           return;
         }
-        const contentType = progRes.headers.get('content-type') || '';
-        let body = '';
-        try {
-          body = contentType.includes('application/json') ? (await progRes.json()).message || JSON.stringify(await progRes.json()) : await progRes.text();
-        } catch (e) {
-          body = `Server responded ${progRes.status}`;
-        }
-        throw new Error(body || `Server responded ${progRes.status}`);
+        throw new Error(`Server responded ${progRes.status}`);
       }
 
       const js = await progRes.json();
+      const serverPurchases = Array.isArray(js.purchasedCourses) ? js.purchasedCourses : [];
+      const progressList = Array.isArray(js.progress) ? js.progress : [];
 
-      // Filter active purchases
-      const purchased = Array.isArray(js.purchasedCourses)
-        ? js.purchasedCourses
-            .filter(pc => (pc.status || 'active') === 'active')
-            .map(pc => {
-              const courseObj = pc.courseId && pc.courseId.title ? pc.courseId : (pc.courseId || {});
-              const id = (pc.courseId && (pc.courseId._id || pc.courseId)) || courseObj._id || courseObj.id;
-              return {
-                courseId: id,
-                title: courseObj.title || pc.title || 'Untitled',
-                author: courseObj.author || 'Author',
-                img: courseObj.img || '/logo.png',
-                price: pc.price != null ? pc.price : (courseObj.price || ''),
-                progress: (js.progress || []).find(p => String(p.courseId) === String(courseObj._id) || String(p.courseId) === String(courseObj.id)) || { percent: 0, hoursLearned: 0 }
-              };
-            })
-        : [];
+      // Build a map of progress by courseId (string) — normalize populated vs id
+      const progressMap = {};
+      progressList.forEach(p => {
+        const pid = p && (p.courseId && (p.courseId._id || p.courseId) ? String(p.courseId._id || p.courseId) : String(p.courseId || ''));
+        if (!pid) return;
+        const percent = typeof p.percent === 'number' ? p.percent : Number(p.percent) || 0;
+        progressMap[pid] = { ...p, courseId: pid, percent };
+      });
 
-      setPurchasedCourses(purchased);
-      setActiveCourses(purchased.length);
+      // Keep only active purchases and with valid courseId (normalize id)
+      const activePurchases = serverPurchases
+        .filter(pc => (pc.status || 'active') === 'active' && Boolean(pc.courseId))
+        .map(pc => {
+          const cid = pc.courseId && (pc.courseId._id || pc.courseId) ? String(pc.courseId._id || pc.courseId) : String(pc.courseId);
+          return { pc, cid };
+        });
+
+      // Build items — if the purchase has populated course metadata, use it; otherwise fetch details.
+      const items = [];
+      const fetchTasks = [];
+
+      activePurchases.forEach(({ pc, cid }) => {
+        if (pc && typeof pc === 'object' && pc.title && pc.img) {
+          // If the backend returned title/img already, use them
+          items.push({
+            courseId: cid,
+            title: pc.title || 'Untitled',
+            author: pc.author || 'Author',
+            img: pc.img || '/logo.png',
+            price: pc.price != null ? pc.price : '',
+            progress: progressMap[cid] || { percent: 0, hoursLearned: 0 },
+            raw: pc
+          });
+        } else {
+          // Need to fetch course metadata later
+          fetchTasks.push({ cid, pc });
+        }
+      });
+
+      if (fetchTasks.length) {
+        const fetches = fetchTasks.map(async ({ cid, pc }) => {
+          try {
+            const r = await fetch(`${API_BASE}/api/courses/${cid}`);
+            if (!r.ok) {
+              console.warn(`Course ${cid} fetch failed: ${r.status}`);
+              return null;
+            }
+            const js2 = await r.json();
+            const c = js2.course;
+            if (!c || !c.title) return null;
+            return {
+              courseId: cid,
+              title: c.title || pc.title || 'Untitled',
+              author: c.author || pc.author || 'Author',
+              img: c.img || pc.img || '/logo.png',
+              price: pc.price != null ? pc.price : (c.price || ''),
+              progress: progressMap[cid] || { percent: 0, hoursLearned: 0 },
+              raw: pc
+            };
+          } catch (e) {
+            console.warn('fetch course meta failed', cid, e);
+            return null;
+          }
+        });
+
+        const results = await Promise.all(fetches);
+        results.forEach(r => { if (r) items.push(r); });
+      }
+
+      // Ensure we only display purchases with resolvable metadata
+      const visibleItems = items.filter(i => i && i.courseId);
+
+      setPurchasedCourses(visibleItems);
+      setActiveCourses(visibleItems.length);
       setCompletedCount(js.completedCount || 0);
       setHoursLearned(js.hoursLearned || 0);
       setStreakDays(js.streakDays || 0);
-      setErrMsg('');
 
       // fetch timeline + badges using backend endpoints if available
       try {
@@ -109,7 +150,7 @@ const Dashboard = () => {
         if (actRes.ok) {
           const actJs = await actRes.json();
           setTimeline(Array.isArray(actJs.events) ? actJs.events : []);
-          if (actJs.events?.length) setLastCourseId(actJs.events[0].courseId || purchased[0]?.courseId);
+          if (actJs.events?.length) setLastCourseId(actJs.events[0].courseId || visibleItems[0]?.courseId);
         } else {
           setTimeline([]);
         }
@@ -123,17 +164,17 @@ const Dashboard = () => {
       } catch (e) {
         // fallback: derive minimal timeline client-side
         const derived = [];
-        (purchased || []).forEach(pc => {
+        (visibleItems || []).forEach(pc => {
           derived.push({
             id: `p-${pc.courseId}`,
             type: 'purchase',
             title: `Purchased: ${pc.title}`,
             courseId: pc.courseId,
-            time: pc.purchasedAt || new Date().toISOString(),
+            time: pc.raw?.purchasedAt || new Date().toISOString(),
             meta: { courseTitle: pc.title, price: pc.price }
           });
         });
-        (js.progress || []).forEach(p => {
+        (progressList || []).forEach(p => {
           derived.push({
             id: `prog-${p.courseId}`,
             type: 'lesson_completed',
@@ -143,12 +184,12 @@ const Dashboard = () => {
             meta: { percent: p.percent }
           });
         });
-        derived.sort((a,b) => new Date(b.time) - new Date(a.time));
+        derived.sort((a, b) => new Date(b.time) - new Date(a.time));
         setTimeline(derived.slice(0, 20));
       }
     } catch (err) {
       console.error('Dashboard load error', err);
-      setErrMsg(typeof err === 'string' ? err : (err.message || 'Could not load dashboard data from server'));
+      setErrMsg(err.message || 'Could not load dashboard data');
       setPurchasedCourses([]);
       setActiveCourses(0);
       setCompletedCount(0);
@@ -172,19 +213,18 @@ const Dashboard = () => {
       setErrMsg('You need to sign in to view your dashboard.');
     }
 
-    function onPurchasesUpdated() {
+    const onUpdated = () => {
       const t = localStorage.getItem('token');
       if (t) loadFromServer(t);
-    }
+    };
 
-    window.addEventListener('purchases.updated', onPurchasesUpdated);
-    window.addEventListener('user.updated', onPurchasesUpdated);
+    window.addEventListener('purchases.updated', onUpdated);
+    window.addEventListener('user.updated', onUpdated);
 
     return () => {
-      window.removeEventListener('purchases.updated', onPurchasesUpdated);
-      window.removeEventListener('user.updated', onPurchasesUpdated);
+      window.removeEventListener('purchases.updated', onUpdated);
+      window.removeEventListener('user.updated', onUpdated);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleCancel = async (courseId) => {
@@ -212,6 +252,7 @@ const Dashboard = () => {
         throw new Error(msg);
       }
 
+      // remove locally and refresh others
       setPurchasedCourses(prev => prev.filter(pc => String(pc.courseId) !== String(courseId)));
       window.dispatchEvent(new Event('purchases.updated'));
     } catch (err) {
@@ -272,7 +313,7 @@ const Dashboard = () => {
 
   const downloadLastCert = (courseId) => {
     if (!courseId) return alert('No certificate found');
-    nav(`/courses/${courseId}`); // placeholder - adapt to your cert flow
+    nav(`/courses/${courseId}`);
   };
 
   const setWeeklyGoal = () => {
@@ -344,7 +385,6 @@ const Dashboard = () => {
         )}
       </div>
 
-      {/* New area: Quick actions, Achievements, Timeline */}
       <div style={{ marginTop: 32 }}>
         <QuickActions
           lastCourseId={lastCourseId}

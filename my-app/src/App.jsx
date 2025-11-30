@@ -14,6 +14,8 @@ import Courses from './components/Courses.jsx';
 import CourseDetail from './components/CourseDetail.jsx';
 import CertificatesPage from './components/CertificatesPage.jsx';
 import Settings from './components/Settings.jsx';
+import LessonPage from './components/LessonPage';
+import QuizPage from './components/QuizPage';
 
 function Home({ loggedIn }) {
   return (
@@ -56,6 +58,8 @@ function App() {
           <Route path="/login" element={<Login setLoggedIn={setLoggedIn} />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/courses/:courseId/module/:moduleId" element={<LessonPage />} />
+          <Route path="/courses/:courseId/quiz" element={<QuizPage />} />
         </Routes>
       </main>
 

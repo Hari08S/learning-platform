@@ -12,11 +12,11 @@ export default function CourseDetail() {
   const [tab, setTab] = useState('overview');
   const [heroSrc, setHeroSrc] = useState('/logo.png');
   const [loading, setLoading] = useState(true);
-  const [buttonState, setButtonState] = useState('idle'); // 'idle' | 'processing' | 'purchased' | 'error'
+  const [buttonState, setButtonState] = useState('idle');
   const [errMsg, setErrMsg] = useState('');
   const [purchased, setPurchased] = useState(false);
+  const [userProgressForCourse, setUserProgressForCourse] = useState(null);
 
-  // Fetch course detail
   useEffect(() => {
     let cancelled = false;
     async function load() {
@@ -24,11 +24,8 @@ export default function CourseDetail() {
       try {
         const res = await fetch(`${API_BASE}/api/courses/${id}`);
         if (!res.ok) {
-          const text = await res.text();
-          if (!cancelled) {
-            setErrMsg('Server error loading course');
-            setLoading(false);
-          }
+          setErrMsg('Server error loading course');
+          setLoading(false);
           return;
         }
         const data = await res.json();
@@ -44,7 +41,6 @@ export default function CourseDetail() {
     return () => { cancelled = true; };
   }, [id]);
 
-  // load hero fallback
   useEffect(() => {
     if (!course) return;
     const candidate = course.img && typeof course.img === 'string'
@@ -57,77 +53,50 @@ export default function CourseDetail() {
     return () => { img.onload = null; img.onerror = null; };
   }, [course]);
 
-  // Check if purchased (server-side) when token exists, otherwise fallback to localStorage
   useEffect(() => {
     let mounted = true;
-
-    async function checkPurchasedServer() {
+    async function loadProgressAndPurchase() {
       const token = localStorage.getItem('token');
       if (!token) {
-        try {
-          const purchasedList = JSON.parse(localStorage.getItem('purchased') || '[]');
-          const idVal = course && course._id ? String(course._id) : id;
-          setPurchased(purchasedList.includes(Number(id)) || purchasedList.includes(String(idVal)));
-        } catch {
-          setPurchased(false);
-        }
+        if (mounted) { setPurchased(false); setUserProgressForCourse(null); }
         return;
       }
-
       try {
-        const res = await fetch(`${API_BASE}/api/me/progress`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const res = await fetch(`${API_BASE}/api/me/progress`, { headers: { Authorization: `Bearer ${token}` }});
         if (!res.ok) {
-          const purchasedList = JSON.parse(localStorage.getItem('purchased') || '[]');
-          const idVal = course && course._id ? String(course._id) : id;
-          setPurchased(purchasedList.includes(Number(id)) || purchasedList.includes(String(idVal)));
+          if (mounted) { setPurchased(false); setUserProgressForCourse(null); }
           return;
         }
         const js = await res.json();
         const purchasedCourses = js.purchasedCourses || [];
-        const courseIdStr = course && course._id ? String(course._id) : id;
-
-        // respect `status` so cancelled purchases are not considered purchased
         const found = purchasedCourses.some(pc => {
-          const cid = pc.courseId && (pc.courseId._id || pc.courseId) ? (pc.courseId._id || pc.courseId) : pc.courseId;
-          const isSame = String(cid) === String(courseIdStr);
-          const isActive = (pc.status || 'active') === 'active';
-          return isSame && isActive;
+          const cid = pc.courseId && (pc.courseId._id || pc.courseId) ? String(pc.courseId._id || pc.courseId) : String(pc.courseId);
+          return cid === String(id) && (pc.status || 'active') === 'active';
         });
-
         if (mounted) setPurchased(Boolean(found));
+        const prog = (js.progress || []).find(p => String(p.courseId) === String(id) || String(p.courseId) === String((course && (course._id || course.id)) || id));
+        if (mounted) setUserProgressForCourse(prog || null);
       } catch (err) {
-        console.error('check purchased failed', err);
-        try {
-          const purchasedList = JSON.parse(localStorage.getItem('purchased') || '[]');
-          const idVal = course && course._id ? String(course._id) : id;
-          setPurchased(purchasedList.includes(Number(id)) || purchasedList.includes(String(idVal)));
-        } catch {
-          setPurchased(false);
-        }
+        console.error('load progress failed', err);
+        if (mounted) { setPurchased(false); setUserProgressForCourse(null); }
       }
     }
 
-    checkPurchasedServer();
-
-    function onUpdated() {
-      checkPurchasedServer();
-    }
+    loadProgressAndPurchase();
+    function onUpdated() { loadProgressAndPurchase(); }
     window.addEventListener('purchases.updated', onUpdated);
-
+    window.addEventListener('user.updated', onUpdated);
     return () => {
-      mounted = false;
       window.removeEventListener('purchases.updated', onUpdated);
+      window.removeEventListener('user.updated', onUpdated);
+      mounted = false;
     };
-  }, [course, id]);
+  }, [id, course]);
 
   if (loading) return <div className="container" style={{ padding: 48 }}>Loading...</div>;
   if (!course) return (
     <div className="container" style={{ padding: 48 }}>
-      <p>
-        Course not found. <Link to="/courses">Back to courses</Link>
-      </p>
+      <p>Course not found. <Link to="/courses">Back to courses</Link></p>
       {errMsg && <p style={{ color: 'red' }}>{errMsg}</p>}
     </div>
   );
@@ -138,77 +107,42 @@ export default function CourseDetail() {
     setButtonState('processing');
 
     const token = localStorage.getItem('token');
-
-    if (token) {
-      try {
-        const body = { courseId: course._id || course.id || id };
-        const res = await fetch(`${API_BASE}/api/purchases`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify(body)
-        });
-
-        const ct = res.headers.get('content-type') || '';
-        if (!res.ok) {
-          if (ct.includes('application/json')) {
-            const j = await res.json();
-            throw new Error(j.message || `Server ${res.status}`);
-          } else {
-            const txt = await res.text();
-            throw new Error(txt ? txt.slice(0, 200) : `Server ${res.status}`);
-          }
-        }
-
-        // update local fallback list as well
-        try {
-          const localList = JSON.parse(localStorage.getItem('purchased') || '[]');
-          const idVal = course._id ? String(course._id) : id;
-          if (!localList.includes(idVal) && !localList.includes(Number(id))) {
-            localList.push(idVal);
-            localStorage.setItem('purchased', JSON.stringify(localList));
-          }
-        } catch (e) { /* ignore */ }
-
-        window.dispatchEvent(new Event('purchases.updated'));
-        window.dispatchEvent(new Event('user.updated'));
-
-        setButtonState('purchased');
-        setPurchased(true);
-        setTimeout(() => navigate('/dashboard'), 900);
-        return;
-      } catch (err) {
-        console.error('Purchase failed', err);
-        setErrMsg(err.message || 'Purchase failed');
-        setButtonState('error');
-        setTimeout(() => setButtonState('idle'), 2000);
-        return;
-      }
+    if (!token) {
+      setErrMsg('Please sign in to purchase');
+      setButtonState('idle');
+      return;
     }
 
-    // fallback localStorage behavior
     try {
-      const updated = [...new Set([...(JSON.parse(localStorage.getItem('purchased') || '[]') || []), Number(id)])];
-      localStorage.setItem('purchased', JSON.stringify(updated));
+      const body = { courseId: course._id || course.id || id };
+      const res = await fetch(`${API_BASE}/api/purchases`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body)
+      });
 
-      const prog = JSON.parse(localStorage.getItem('progress') || '{}');
-      if (!prog[id]) {
-        prog[id] = { percent: 0, hoursLearned: 0, lastSeenAt: new Date().toISOString() };
-        localStorage.setItem('progress', JSON.stringify(prog));
+      const ct = res.headers.get('content-type') || '';
+      if (!res.ok) {
+        if (ct.includes('application/json')) {
+          const j = await res.json();
+          throw new Error(j.message || `Server ${res.status}`);
+        } else {
+          const txt = await res.text();
+          throw new Error(txt || `Server ${res.status}`);
+        }
       }
 
-      window.dispatchEvent(new Event('purchases.updated'));
       setButtonState('purchased');
       setPurchased(true);
-      setTimeout(() => navigate('/dashboard'), 800);
+      window.dispatchEvent(new Event('purchases.updated'));
+      window.dispatchEvent(new Event('user.updated'));
+      setTimeout(() => navigate('/dashboard'), 900);
       return;
     } catch (err) {
-      console.error('Local purchase failed', err);
-      setErrMsg('Could not save purchase locally');
+      console.error('Purchase failed', err);
+      setErrMsg(err.message || 'Purchase failed');
       setButtonState('error');
-      setTimeout(() => setButtonState('idle'), 1600);
+      setTimeout(() => setButtonState('idle'), 2000);
       return;
     }
   };
@@ -218,65 +152,46 @@ export default function CourseDetail() {
     if (!ok) return;
 
     const token = localStorage.getItem('token');
-    if (token) {
-      setButtonState('processing');
-      try {
-        const courseId = course._id || id;
-        const res = await fetch(`${API_BASE}/api/purchases/${courseId}`, {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` }
-        });
-
-        if (!res.ok) {
-          const ct = res.headers.get('content-type') || '';
-          if (ct.includes('application/json')) {
-            const j = await res.json();
-            throw new Error(j.message || `Server ${res.status}`);
-          } else {
-            const t = await res.text();
-            throw new Error(t || `Server ${res.status}`);
-          }
-        }
-
-        // update local fallback too
-        try {
-          const localList = JSON.parse(localStorage.getItem('purchased') || '[]');
-          const idVal = course._id ? String(course._id) : id;
-          const filtered = (localList || []).filter(x => String(x) !== String(idVal) && String(x) !== String(Number(id)));
-          localStorage.setItem('purchased', JSON.stringify(filtered));
-        } catch (e) { /* ignore */ }
-
-        window.dispatchEvent(new Event('purchases.updated'));
-        window.dispatchEvent(new Event('user.updated'));
-
-        setPurchased(false);
-        setButtonState('idle');
-        return;
-      } catch (err) {
-        console.error('Cancel failed', err);
-        setErrMsg(err.message || 'Cancel failed');
-        setButtonState('error');
-        setTimeout(() => setButtonState('idle'), 1600);
-        return;
-      }
-    } else {
-      // fallback: cancel localStorage purchase
-      try {
-        const localList = JSON.parse(localStorage.getItem('purchased') || '[]');
-        const filtered = (localList || []).filter(x => String(x) !== String(id) && String(x) !== String(Number(id)));
-        localStorage.setItem('purchased', JSON.stringify(filtered));
-        const prog = JSON.parse(localStorage.getItem('progress') || '{}');
-        delete prog[id];
-        localStorage.setItem('progress', JSON.stringify(prog));
-        window.dispatchEvent(new Event('purchases.updated'));
-        setPurchased(false);
-        return;
-      } catch (err) {
-        console.error('Local cancel failed', err);
-        setErrMsg('Cancel failed');
-        return;
-      }
+    if (!token) {
+      alert('You must be signed in to cancel purchases.');
+      return;
     }
+
+    setButtonState('processing');
+    try {
+      const courseId = course._id || id;
+      const res = await fetch(`${API_BASE}/api/purchases/${courseId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` }});
+      if (!res.ok) {
+        const ct = res.headers.get('content-type') || '';
+        if (ct.includes('application/json')) {
+          const j = await res.json();
+          throw new Error(j.message || `Server ${res.status}`);
+        } else {
+          const t = await res.text();
+          throw new Error(t || `Server ${res.status}`);
+        }
+      }
+
+      window.dispatchEvent(new Event('purchases.updated'));
+      window.dispatchEvent(new Event('user.updated'));
+      setPurchased(false);
+      setButtonState('idle');
+      return;
+    } catch (err) {
+      console.error('Cancel failed', err);
+      setErrMsg(err.message || 'Cancel failed');
+      setButtonState('error');
+      setTimeout(() => setButtonState('idle'), 1600);
+      return;
+    }
+  };
+
+  const isLessonDone = (lesson) => {
+    if (!userProgressForCourse || !userProgressForCourse.completedLessons) return false;
+    // normalize both sides to string
+    const doneSet = new Set((userProgressForCourse.completedLessons || []).map(x => String(x)));
+    const lid = String(lesson.id ?? lesson._id);
+    return doneSet.has(lid);
   };
 
   return (
@@ -326,20 +241,32 @@ export default function CourseDetail() {
               <>
                 <h2>Course Curriculum</h2>
                 <div className="curriculum">
-                  {(course.curriculum || []).map((ch) => (
-                    <div className="curriculum-item" key={ch.id}>
-                      <div className="num">{ch.id}</div>
-                      <div className="curriculum-body">
-                        <div className="curriculum-title">{ch.title}</div>
-                        <div className="curriculum-meta">
-                          {ch.mins} min {ch.preview || purchased ? <span className="preview"> ✓ Unlocked</span> : <span className="locked"> Locked</span>}
+                  {(course.curriculum || []).map((ch) => {
+                    const key = ch.id ?? ch._id;
+                    return (
+                      <div className="curriculum-item" key={String(key)}>
+                        <div className="num">{ch.id}</div>
+                        <div className="curriculum-body">
+                          <div className="curriculum-title">{ch.title}</div>
+                          <div className="curriculum-meta">
+                            {ch.mins} min {ch.preview || purchased ? <span className="preview"> ✓ Unlocked</span> : <span className="locked"> Locked</span>}
+                            {isLessonDone(ch) && <span style={{ marginLeft: 8, color: '#10B981', fontWeight: 800 }}>✓ Done</span>}
+                          </div>
+                        </div>
+                        <div className="curriculum-action">
+                          <button
+                            className="btn outline small"
+                            onClick={() => {
+                              if (!purchased) return alert('Please purchase the course to view lessons.');
+                              navigate(`/courses/${course._id}/module/${ch.id ?? ch._id}`);
+                            }}
+                          >
+                            {isLessonDone(ch) ? '✓ View' : 'View'}
+                          </button>
                         </div>
                       </div>
-                      <div className="curriculum-action">
-                        {ch.preview || purchased ? <button className="btn outline small">View</button> : <span className="muted">Locked</span>}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             )}

@@ -2,10 +2,12 @@
 const mongoose = require('mongoose');
 
 const CurriculumItem = new mongoose.Schema({
-  id: Number,
+  id: mongoose.Schema.Types.Mixed, // number or string
   title: String,
   mins: Number,
-  preview: { type: Boolean, default: false }
+  preview: { type: Boolean, default: false },
+  body: String,       // optional lesson content (HTML/Markdown)
+  type: String        // optional: 'quiz' for quiz module
 }, { _id: false });
 
 const InstructorSchema = new mongoose.Schema({
@@ -22,8 +24,8 @@ const CourseSchema = new mongoose.Schema({
   hours: String,
   students: Number,
   level: String,
-  price: mongoose.Schema.Types.Mixed, // accept number or string
-  priceNumber: { type: Number, default: 0 }, // numeric price for computations
+  price: mongoose.Schema.Types.Mixed,
+  priceNumber: { type: Number, default: 0 },
   img: String,
   tag: String,
   rating: Number,
