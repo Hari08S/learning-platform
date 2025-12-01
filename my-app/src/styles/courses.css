@@ -639,3 +639,21 @@
     grid-template-columns: repeat(3, 1fr);
   }
 }
+/* ensure the modal can scroll inside viewport */
+.modal {
+  max-height: 86vh;        /* keep modal inside viewport */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ensure the backdrop also allows scroll if needed (optional) */
+.modal-backdrop {
+  overflow: auto;
+}
+/* Modal improvements for Purchase History */
+.modal-backdrop { -webkit-overflow-scrolling: touch; }
+.modal { border-radius: 12px; outline: none; }
+
+/* Buttons you already have — ensure these exist */
+.btn.outline { padding: 8px 14px; border-radius: 10px; }
+.btn.primary { padding: 10px 14px; border-radius: 10px; }

@@ -13,8 +13,8 @@ router.get('/courses/:courseId/quiz', requireAuth, async (req, res) => {
     const quiz = await Quiz.findOne({ courseId }).lean();
     if (!quiz) return res.status(404).json({ message: 'Quiz not found for this course' });
 
-    if (!Array.isArray(quiz.questions) || quiz.questions.length < 5) {
-      return res.status(400).json({ message: 'Quiz not available (not enough questions).' });
+    if (!Array.isArray(quiz.questions) || quiz.questions.length < 1) {
+      return res.status(400).json({ message: 'Quiz not available.' });
     }
 
     // verify purchase
@@ -31,6 +31,7 @@ router.get('/courses/:courseId/quiz', requireAuth, async (req, res) => {
 });
 
 // POST submit answers
+// if passed -> set progress.completedAt for this course so certificate unlocks
 router.post('/me/quiz/:courseId', requireAuth, async (req, res) => {
   try {
     const userId = req.userId;
@@ -58,10 +59,10 @@ router.post('/me/quiz/:courseId', requireAuth, async (req, res) => {
 
     const total = quiz.questions.length;
     const percent = total > 0 ? Math.round((correctCount / total) * 100) : 0;
-    const PASS_THRESHOLD = 50; // we'll treat >=50 as pass per your choice
+    const PASS_THRESHOLD = 50; // pass threshold
     const passed = percent >= PASS_THRESHOLD;
 
-    // update user progress
+    // update user progress: set lastSeenAt and ensure a progress entry exists
     let prog = user.progress.find(p => String(p.courseId) === String(courseId));
     if (!prog) {
       prog = { courseId, percent: 0, hoursLearned: 0, lastSeenAt: new Date(), completedLessons: [] };
@@ -69,12 +70,14 @@ router.post('/me/quiz/:courseId', requireAuth, async (req, res) => {
     }
 
     prog.lastSeenAt = new Date();
+    // keep the highest percent (module progress may have produced 100% but not completedAt)
     prog.percent = Math.max(prog.percent || 0, percent);
 
     if (passed) {
+      // mark completedAt only when user passes quiz
       prog.completedAt = prog.completedAt || new Date();
-      // optional: mark all lessons completed
-      // prog.completedLessons = course.curriculum.map(c => c.id);
+      // Optionally ensure percent = 100
+      prog.percent = 100;
     }
 
     await user.save();

@@ -6,12 +6,60 @@ const Course = require('../models/Course');
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/upwise';
 
+function generateQuestionsForCourse(course) {
+  const title = course.title || 'This course';
+  const curriculum = Array.isArray(course.curriculum) ? course.curriculum : [];
+  const questions = [];
+
+  questions.push({
+    id: `q-${course._id}-1`,
+    question: `What is the main purpose of "${title}"?`,
+    choices: ["To learn basics", "To watch movies", "To play games", "None of these"],
+    answerIndex: 0
+  });
+
+  questions.push({
+    id: `q-${course._id}-2`,
+    question: `This course "${title}" contains how many modules?`,
+    choices: [
+      `${Math.max(1, Math.floor(curriculum.length / 2))}–${curriculum.length}`,
+      "1–3",
+      "10+",
+      "None"
+    ],
+    answerIndex: 0
+  });
+
+  for (let i = 0; i < Math.min(3, curriculum.length); i++) {
+    const item = curriculum[i];
+    questions.push({
+      id: `q-${course._id}-${3 + i}`,
+      question: `Which topic is covered in module ${i + 1}?`,
+      choices: [
+        item.title || 'Module content',
+        'Unrelated topic',
+        'Another topic',
+        'None'
+      ],
+      answerIndex: 0
+    });
+  }
+
+  while (questions.length < 5) {
+    questions.push({
+      id: `q-${course._id}-extra-${questions.length}`,
+      question: `True or false: ${title} includes hands-on practice?`,
+      choices: ["True", "False", "Sometimes", "Never"],
+      answerIndex: 0
+    });
+  }
+
+  return questions;
+}
 
 async function seed() {
   try {
-    console.log("Connecting to DB:", MONGO_URI);
-    await mongoose.connect(MONGO_URI);
-
+    await mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });
     const courses = await Course.find({});
     if (!courses.length) {
       console.log("No courses found. Seed courses first.");
@@ -21,53 +69,19 @@ async function seed() {
     for (const course of courses) {
       const existing = await Quiz.findOne({ courseId: course._id });
       if (existing) {
-        console.log(`Quiz already exists for course ${course.title} — skipping`);
+        console.log(`Quiz exists for "${course.title}" — skipping.`);
         continue;
       }
-
       const quiz = new Quiz({
         courseId: course._id,
-        questions: [
-          {
-            id: "q1",
-            question: `What is the main purpose of ${course.title}?`,
-            choices: ["To learn basics", "To watch movies", "To play games", "None"],
-            answerIndex: 0
-          },
-          {
-            id: "q2",
-            question: "How many modules are usually in this course?",
-            choices: ["1–3", "3–6", "6–10", "10+"],
-            answerIndex: 1
-          },
-          {
-            id: "q3",
-            question: "Is hands-on practice recommended?",
-            choices: ["Yes", "No", "Sometimes", "Never"],
-            answerIndex: 0
-          },
-          {
-            id: "q4",
-            question: "Who should take this course?",
-            choices: ["Students", "Developers", "Anyone learning", "Only experts"],
-            answerIndex: 2
-          },
-          {
-            id: "q5",
-            question: "What do you receive after completing?",
-            choices: ["A cookie", "Nothing", "Certificate", "Laptop"],
-            answerIndex: 2
-          }
-        ]
+        questions: generateQuestionsForCourse(course)
       });
-
       await quiz.save();
-      console.log(`Quiz created for: ${course.title}`);
+      console.log(`Created quiz for "${course.title}"`);
     }
 
-    console.log("Quiz seeding complete ✔️");
+    console.log("Quiz seeding complete.");
     process.exit(0);
-
   } catch (err) {
     console.error("Seed error:", err);
     process.exit(1);

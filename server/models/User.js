@@ -1,3 +1,4 @@
+// server/models/User.js
 const mongoose = require('mongoose');
 
 const PurchasedSchema = new mongoose.Schema({
@@ -41,4 +42,5 @@ const UserSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-module.exports = mongoose.model('User', UserSchema);
+// safe export to avoid OverwriteModelError on hot reload/nodemon
+module.exports = mongoose.models.User || mongoose.model('User', UserSchema);

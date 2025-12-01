@@ -2,16 +2,17 @@
 const mongoose = require('mongoose');
 
 const QuestionSchema = new mongoose.Schema({
-  id: { type: String, required: true },
-  question: { type: String, required: true },
-  choices: [{ type: String }],
-  answerIndex: { type: Number } // correct choice index (hidden from client)
+  id: String,
+  question: String,
+  choices: [String],
+  answerIndex: Number
 }, { _id: false });
 
 const QuizSchema = new mongoose.Schema({
-  courseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Course', required: true },
+  courseId: { type: mongoose.Schema.Types.ObjectId, required: true, ref: 'Course' },
   questions: [QuestionSchema],
   createdAt: { type: Date, default: Date.now }
 });
 
-module.exports = mongoose.model('Quiz', QuizSchema);
+// safe export
+module.exports = mongoose.models.Quiz || mongoose.model('Quiz', QuizSchema);

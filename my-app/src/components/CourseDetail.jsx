@@ -42,6 +42,19 @@ export default function CourseDetail() {
   }, [id]);
 
   useEffect(() => {
+    // existing code...
+    // set current course for presence tracker
+    localStorage.setItem('currentCourseId', String(id || (course && (course._id || course.id))));
+    return () => {
+      // clear when leaving course detail
+      const cur = localStorage.getItem('currentCourseId');
+      if (cur && String(cur) === String(id || (course && (course._id || course.id)))) {
+        localStorage.removeItem('currentCourseId');
+      }
+    };
+  }, [id, course]);
+  
+  useEffect(() => {
     if (!course) return;
     const candidate = course.img && typeof course.img === 'string'
       ? (course.img.startsWith('/') ? course.img : `/${course.img}`)

@@ -42,22 +42,17 @@ export default function CertificatesPage() {
 
       if (!res.ok) {
         const json = ct.includes("application/json") ? await res.json() : null;
-        // if returned message in json, propagate
         throw new Error((json && json.message) || `Server error ${res.status}`);
       }
 
       const js = await res.json();
-      // js: { purchasedCourses: [...], progress: [...], activeCourses, ... }
-
       const progressMap = (js.progress || []).reduce((acc, p) => {
-        // p.courseId already normalized to string on server
         if (!p || !p.courseId) return acc;
         acc[String(p.courseId)] = p;
         return acc;
       }, {});
 
       // Only include active purchases (exclude cancelled) AND only where course metadata is resolvable
-      // purchasedCourses from /me/progress is already shaped by server: courseId, title, img, status, etc.
       const out = (js.purchasedCourses || [])
         .filter(pc => (pc.status || "active") === "active" && Boolean(pc.courseId) && (pc.title || pc.img))
         .map((pc) => {
@@ -182,25 +177,25 @@ export default function CertificatesPage() {
 
                   <div style={{ textAlign: "right" }}>
                     <div style={{ fontSize: 14, fontWeight: 800, color: pct >= 100 ? "#10B981" : "#374151" }}>{pct}%</div>
-                    <div style={{ fontSize: 12, color: "#94A3B8" }}>{pct >= 100 ? "Completed" : "In progress"}</div>
+                    <div style={{ fontSize: 12, color: "#94A3B8" }}>{completedAt ? "Completed" : "In progress"}</div>
                   </div>
                 </div>
 
                 <div style={{ marginTop: 12 }}>
                   <div style={{ height: 10, background: "#EEF2FF", borderRadius: 8, overflow: "hidden" }}>
-                    <div style={{ width: `${Math.min(100, pct)}%`, height: "100%", background: pct >= 100 ? "#10B981" : "#60A5FA", transition: "width 300ms" }} />
+                    <div style={{ width: `${Math.min(100, pct)}%`, height: "100%", background: completedAt ? "#10B981" : "#60A5FA", transition: "width 300ms" }} />
                   </div>
                 </div>
               </div>
 
               <div style={{ minWidth: 220 }}>
-                {pct >= 100 || completedAt ? (
+                {completedAt ? (
                   <button className="btn primary" onClick={() => handleDownload(course)} disabled={busy === course.id} style={{ width: "100%" }}>
                     {busy === course.id ? "Preparing…" : "Download Certificate"}
                   </button>
                 ) : (
                   <div style={{ display: "grid", gap: 8 }}>
-                    <div style={{ fontSize: 13, color: "#94A3B8" }}>Complete the course and pass the course quiz to unlock your certificate.</div>
+                    <div style={{ fontSize: 13, color: "#94A3B8" }}>Complete the course AND pass the course quiz to unlock your certificate.</div>
 
                     <div style={{ display: "flex", gap: 8 }}>
                       <Link className="btn outline" to={`/courses/${course.id}`} style={{ textAlign: "center", flex: 1 }}>Continue Course</Link>

@@ -31,6 +31,8 @@ router.get('/courses/:courseId/module/:moduleId', requireAuth, async (req, res) 
 });
 
 // POST mark lesson done
+// NOTE: marking lessons updates percent but DOES NOT auto-mark completedAt.
+// completedAt will only be set when quiz is passed.
 router.post('/me/progress/mark-lesson', requireAuth, async (req, res) => {
   try {
     const userId = req.userId;
@@ -61,9 +63,9 @@ router.post('/me/progress/mark-lesson', requireAuth, async (req, res) => {
     prog.percent = total > 0 ? Math.round((done / total) * 100) : prog.percent;
     prog.lastSeenAt = new Date();
 
-    if (prog.percent >= 100 && !prog.completedAt) {
-      prog.completedAt = new Date();
-    }
+    // IMPORTANT: do not set prog.completedAt here even if percent >= 100.
+    // The course will be "100% ready" but completion requires passing quiz.
+    // However we keep percent and completedLessons so UI can show progress.
 
     await user.save();
 

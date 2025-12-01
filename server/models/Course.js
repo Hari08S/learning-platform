@@ -2,12 +2,12 @@
 const mongoose = require('mongoose');
 
 const CurriculumItem = new mongoose.Schema({
-  id: mongoose.Schema.Types.Mixed, // number or string
+  id: mongoose.Schema.Types.Mixed, // allow numeric or string ids from seed data
   title: String,
   mins: Number,
   preview: { type: Boolean, default: false },
-  body: String,       // optional lesson content (HTML/Markdown)
-  type: String        // optional: 'quiz' for quiz module
+  type: { type: String, default: 'lesson' },
+  body: String
 }, { _id: false });
 
 const InstructorSchema = new mongoose.Schema({
@@ -19,12 +19,13 @@ const InstructorSchema = new mongoose.Schema({
 }, { _id: false });
 
 const CourseSchema = new mongoose.Schema({
+  legacyId: { type: mongoose.Schema.Types.Mixed, default: null }, // original numeric id from seed
   title: { type: String, required: true },
   author: String,
   hours: String,
   students: Number,
   level: String,
-  price: mongoose.Schema.Types.Mixed,
+  price: mongoose.Schema.Types.Mixed, // keep raw price, numeric price stored separately below
   priceNumber: { type: Number, default: 0 },
   img: String,
   tag: String,
@@ -36,4 +37,4 @@ const CourseSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-module.exports = mongoose.model('Course', CourseSchema);
+module.exports = mongoose.models.Course || mongoose.model('Course', CourseSchema);

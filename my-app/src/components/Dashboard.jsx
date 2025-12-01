@@ -1,3 +1,4 @@
+// src/components/Dashboard.jsx
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import '../styles/courses.css';
@@ -7,6 +8,9 @@ import AchievementsRow from './AchievementsRow';
 import QuickActions from './QuickActions';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+
+/** helpers */
+const normId = v => (v && typeof v === 'object') ? String(v._id || v) : String(v || '');
 
 const Dashboard = () => {
   const nav = useNavigate();
@@ -33,16 +37,13 @@ const Dashboard = () => {
     setLoadingPurchases(true);
     setErrMsg('');
     try {
-      // optional me endpoint to show name
       try {
         const meRes = await fetch(`${API_BASE}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` }});
         if (meRes.ok) {
           const meJson = await meRes.json();
           setUserName(meJson.user?.name || meJson.user?.email || '');
         }
-      } catch (e) {
-        // non-fatal
-      }
+      } catch (e) { /* non-fatal */ }
 
       const progRes = await fetch(`${API_BASE}/api/me/progress`, { headers: { Authorization: `Bearer ${token}` }});
       if (!progRes.ok) {
@@ -62,10 +63,10 @@ const Dashboard = () => {
       const serverPurchases = Array.isArray(js.purchasedCourses) ? js.purchasedCourses : [];
       const progressList = Array.isArray(js.progress) ? js.progress : [];
 
-      // Build a map of progress by courseId (string) — normalize populated vs id
+      // Build a map of progress by courseId (string)
       const progressMap = {};
       progressList.forEach(p => {
-        const pid = p && (p.courseId && (p.courseId._id || p.courseId) ? String(p.courseId._id || p.courseId) : String(p.courseId || ''));
+        const pid = normId(p.courseId);
         if (!pid) return;
         const percent = typeof p.percent === 'number' ? p.percent : Number(p.percent) || 0;
         progressMap[pid] = { ...p, courseId: pid, percent };
@@ -74,29 +75,25 @@ const Dashboard = () => {
       // Keep only active purchases and with valid courseId (normalize id)
       const activePurchases = serverPurchases
         .filter(pc => (pc.status || 'active') === 'active' && Boolean(pc.courseId))
-        .map(pc => {
-          const cid = pc.courseId && (pc.courseId._id || pc.courseId) ? String(pc.courseId._id || pc.courseId) : String(pc.courseId);
-          return { pc, cid };
-        });
+        .map(pc => ({ pc, cid: normId(pc.courseId) }));
 
-      // Build items — if the purchase has populated course metadata, use it; otherwise fetch details.
       const items = [];
       const fetchTasks = [];
 
       activePurchases.forEach(({ pc, cid }) => {
-        if (pc && typeof pc === 'object' && pc.title && pc.img) {
-          // If the backend returned title/img already, use them
+        // If backend returned title/img already, use them
+        if (pc && typeof pc === 'object' && (pc.title || (pc.courseId && typeof pc.courseId === 'object' && pc.courseId.title))) {
+          const courseObj = (typeof pc.courseId === 'object' && pc.courseId.title) ? pc.courseId : {};
           items.push({
             courseId: cid,
-            title: pc.title || 'Untitled',
-            author: pc.author || 'Author',
-            img: pc.img || '/logo.png',
+            title: pc.title || courseObj.title || 'Untitled',
+            author: pc.author || courseObj.author || 'Author',
+            img: pc.img || courseObj.img || '/logo.png',
             price: pc.price != null ? pc.price : '',
             progress: progressMap[cid] || { percent: 0, hoursLearned: 0 },
             raw: pc
           });
         } else {
-          // Need to fetch course metadata later
           fetchTasks.push({ cid, pc });
         }
       });
@@ -131,38 +128,32 @@ const Dashboard = () => {
         results.forEach(r => { if (r) items.push(r); });
       }
 
-      // Ensure we only display purchases with resolvable metadata
       const visibleItems = items.filter(i => i && i.courseId);
-
       setPurchasedCourses(visibleItems);
       setActiveCourses(visibleItems.length);
       setCompletedCount(js.completedCount || 0);
       setHoursLearned(js.hoursLearned || 0);
       setStreakDays(js.streakDays || 0);
 
-      // fetch timeline + badges using backend endpoints if available
       try {
         const [actRes, badgesRes] = await Promise.all([
           fetch(`${API_BASE}/api/me/activity`, { headers: { Authorization: `Bearer ${token}` } }),
           fetch(`${API_BASE}/api/me/badges`, { headers: { Authorization: `Bearer ${token}` } })
         ]);
-
         if (actRes.ok) {
-          const actJs = await actRes.json();
-          setTimeline(Array.isArray(actJs.events) ? actJs.events : []);
-          if (actJs.events?.length) setLastCourseId(actJs.events[0].courseId || visibleItems[0]?.courseId);
+          const ajs = await actRes.json();
+          setTimeline(Array.isArray(ajs.events) ? ajs.events : []);
+          if (ajs.events?.length) setLastCourseId(ajs.events[0].courseId || visibleItems[0]?.courseId);
         } else {
           setTimeline([]);
         }
-
         if (badgesRes.ok) {
-          const badJs = await badgesRes.json();
-          setBadges(Array.isArray(badJs.badges) ? badJs.badges : []);
+          const bjs = await badgesRes.json();
+          setBadges(Array.isArray(bjs.badges) ? bjs.badges : []);
         } else {
           setBadges([]);
         }
       } catch (e) {
-        // fallback: derive minimal timeline client-side
         const derived = [];
         (visibleItems || []).forEach(pc => {
           derived.push({
@@ -175,11 +166,12 @@ const Dashboard = () => {
           });
         });
         (progressList || []).forEach(p => {
+          const pid = normId(p.courseId);
           derived.push({
-            id: `prog-${p.courseId}`,
+            id: `prog-${pid}`,
             type: 'lesson_completed',
-            title: `Progress: ${p.percent}% — ${p.courseId}`,
-            courseId: p.courseId,
+            title: `Progress: ${p.percent}% — ${pid}`,
+            courseId: pid,
             time: p.lastSeenAt || new Date().toISOString(),
             meta: { percent: p.percent }
           });
@@ -252,7 +244,6 @@ const Dashboard = () => {
         throw new Error(msg);
       }
 
-      // remove locally and refresh others
       setPurchasedCourses(prev => prev.filter(pc => String(pc.courseId) !== String(courseId)));
       window.dispatchEvent(new Event('purchases.updated'));
     } catch (err) {

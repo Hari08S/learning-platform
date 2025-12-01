@@ -16,6 +16,7 @@ import CertificatesPage from './components/CertificatesPage.jsx';
 import Settings from './components/Settings.jsx';
 import LessonPage from './components/LessonPage';
 import QuizPage from './components/QuizPage';
+import { startPresenceTracker, stopPresenceTracker } from './utils/presenceTracker';
 
 function Home({ loggedIn }) {
   return (
@@ -28,6 +29,20 @@ function Home({ loggedIn }) {
 
 function App() {
   const [loggedIn, setLoggedIn] = useState(false);
+
+  // start presence tracker only when authenticated
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) return undefined;
+
+    // If your tracker accepts token param you can pass it; here we assume it reads localStorage
+    const cleanup = startPresenceTracker({ intervalSeconds: 60, minActiveSecondsToSend: 60 });
+
+    return () => {
+      if (cleanup) cleanup();
+      stopPresenceTracker();
+    };
+  }, []); // runs once; will only start if token exists
 
   // Load login status on refresh
   useEffect(() => {

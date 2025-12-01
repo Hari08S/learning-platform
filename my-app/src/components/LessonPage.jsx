@@ -42,6 +42,18 @@ export default function LessonPage() {
     return () => { mounted = false; };
   }, [courseId, moduleId]);
 
+  useEffect(() => {
+    // mark this course as current so presence tracker attributes time here
+    const prev = localStorage.getItem('currentCourseId');
+    localStorage.setItem('currentCourseId', courseId);
+    return () => {
+      // only remove if we set it (avoid wiping if other page changed it)
+      const cur = localStorage.getItem('currentCourseId');
+      if (cur === courseId) localStorage.removeItem('currentCourseId');
+    };
+  }, [courseId]);
+  
+
   const handleMark = async (goNext = false) => {
     const token = localStorage.getItem('token');
     if (!token) {
