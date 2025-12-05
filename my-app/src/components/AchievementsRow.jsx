@@ -1,8 +1,6 @@
-// src/components/AchievementsRow.jsx
 import React from 'react';
 
 export default function AchievementsRow({ badges = [] }) {
-  // badges: [{ id, title, icon, earnedAt, description, progress }]
   return (
     <div style={{ marginTop: 22 }}>
       <h3 style={{ marginBottom: 10 }}>Achievements</h3>

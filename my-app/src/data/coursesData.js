@@ -1,13 +1,14 @@
-// src/data/coursesData.js
 const courses = [
   {
+    // added _id so local fallback can match URLs using mongo ids
+    _id: '692c4008b5bc73c629dab289',
     id: 1,
     title: "React for Beginners: The Complete Guide",
     author: "Priya Sharma",
     hours: "25h",
     students: 12500,
     level: "beginner",
-    price: 99, // numeric price
+    price: 99,
     img: "/course1.jpeg",
     tag: "tech",
     rating: 4.9,
@@ -33,6 +34,71 @@ const courses = [
       rating: 4.9,
       students: 12500,
       courses: 8
+    },
+
+    // Unique intermediate quiz (React)
+    quiz: {
+      _id: "local-q-react-1",
+      title: "React Intermediate Quiz",
+      estimatedMins: 12,
+      passingPercentage: 60,
+      questions: [
+        {
+          _id: "r-int-1",
+          text: "Which hook lets you run side effects in function components?",
+          options: [
+            { id: "a", text: "useMemo" },
+            { id: "b", text: "useEffect" },
+            { id: "c", text: "useCallback" }
+          ],
+          correctOptionId: "b",
+          points: 2
+        },
+        {
+          _id: "r-int-2",
+          text: "What is the primary purpose of keys in a list?",
+          options: [
+            { id: "a", text: "To style elements" },
+            { id: "b", text: "To uniquely identify list items for reconciliation" },
+            { id: "c", text: "To add event handlers" }
+          ],
+          correctOptionId: "b",
+          points: 2
+        },
+        {
+          _id: "r-int-3",
+          text: "Which of these prevents unnecessary re-renders when passed as props?",
+          options: [
+            { id: "a", text: "Wrapping callbacks with useCallback" },
+            { id: "b", text: "Using inline functions everywhere" },
+            { id: "c", text: "Using JSON.stringify on props" }
+          ],
+          correctOptionId: "a",
+          points: 2
+        },
+        {
+          _id: "r-int-4",
+          text: "How do you optimize expensive calculations only when inputs change?",
+          options: [
+            { id: "a", text: "useState" },
+            { id: "b", text: "useMemo" },
+            { id: "c", text: "useRef" }
+          ],
+          correctOptionId: "b",
+          points: 2
+        },
+        {
+          _id: "r-int-5",
+          text: "When should you use Context API?",
+          options: [
+            { id: "a", text: "For passing data deeply without prop-drilling" },
+            { id: "b", text: "To replace local component state always" },
+            { id: "c", text: "To implement routing" }
+          ],
+          correctOptionId: "a",
+          points: 2
+        }
+      ]
     }
   },
 
@@ -67,6 +133,71 @@ const courses = [
       rating: 4.8,
       students: 21300,
       courses: 12
+    },
+
+    // Unique intermediate quiz (Marketing)
+    quiz: {
+      _id: "local-q-marketing-2",
+      title: "Digital Marketing Intermediate Quiz",
+      estimatedMins: 12,
+      passingPercentage: 65,
+      questions: [
+        {
+          _id: "m-int-1",
+          text: "Which metric indicates the % of people who clicked an ad after seeing it?",
+          options: [
+            { id: "a", text: "Conversion Rate" },
+            { id: "b", text: "Click-Through Rate (CTR)" },
+            { id: "c", text: "Bounce Rate" }
+          ],
+          correctOptionId: "b",
+          points: 2
+        },
+        {
+          _id: "m-int-2",
+          text: "In SEO, adding structured data (schema.org) primarily helps with:",
+          options: [
+            { id: "a", text: "Server speed" },
+            { id: "b", text: "Search result richness & SERP features" },
+            { id: "c", text: "Email deliverability" }
+          ],
+          correctOptionId: "b",
+          points: 2
+        },
+        {
+          _id: "m-int-3",
+          text: "Which paid channel is typically best for intent-driven search traffic?",
+          options: [
+            { id: "a", text: "Display Ads" },
+            { id: "b", text: "Google Search Ads" },
+            { id: "c", text: "TikTok Ads" }
+          ],
+          correctOptionId: "b",
+          points: 2
+        },
+        {
+          _id: "m-int-4",
+          text: "What does CAC stand for and why is it important?",
+          options: [
+            { id: "a", text: "Customer Average Cost — for design budgeting" },
+            { id: "b", text: "Customer Acquisition Cost — to measure ROI of channels" },
+            { id: "c", text: "Content Acquisition Channel — a marketing channel" }
+          ],
+          correctOptionId: "b",
+          points: 2
+        },
+        {
+          _id: "m-int-5",
+          text: "Which A/B test result is statistically significant?",
+          options: [
+            { id: "a", text: "When sample size is tiny but lift is large" },
+            { id: "b", text: "When p-value < 0.05 and sample sizes are adequate" },
+            { id: "c", text: "When conversions increase by any amount" }
+          ],
+          correctOptionId: "b",
+          points: 2
+        }
+      ]
     }
   },
 
@@ -101,6 +232,60 @@ const courses = [
       rating: 4.9,
       students: 18450,
       courses: 9
+    },
+
+    // Unique intermediate quiz (UI/UX)
+    quiz: {
+      _id: "local-q-ux-3",
+      title: "UI/UX Intermediate Quiz",
+      estimatedMins: 10,
+      passingPercentage: 60,
+      questions: [
+        {
+          _id: "u-int-1",
+          text: "What's the main purpose of a usability test?",
+          options: [
+            { id: "a", text: "To test code performance" },
+            { id: "b", text: "To observe real users performing tasks and find friction" },
+            { id: "c", text: "To create final UI assets" }
+          ],
+          correctOptionId: "b",
+          points: 2
+        },
+        {
+          _id: "u-int-2",
+          text: "Which UI pattern helps users recover from errors quickly?",
+          options: [
+            { id: "a", text: "Clear inline validation and undo actions" },
+            { id: "b", text: "Hiding error messages entirely" },
+            { id: "c", text: "Making forms one huge long page" }
+          ],
+          correctOptionId: "a",
+          points: 2
+        },
+        {
+          _id: "u-int-3",
+          text: "When designing for accessibility, which practice is essential?",
+          options: [
+            { id: "a", text: "Use color only to convey information" },
+            { id: "b", text: "Ensure sufficient color contrast and keyboard navigation" },
+            { id: "c", text: "Always use tiny font sizes" }
+          ],
+          correctOptionId: "b",
+          points: 2
+        },
+        {
+          _id: "u-int-4",
+          text: "What is a design system?",
+          options: [
+            { id: "a", text: "A collection of reusable components, guidelines and tokens" },
+            { id: "b", text: "A single screen design" },
+            { id: "c", text: "Only a CSS file" }
+          ],
+          correctOptionId: "a",
+          points: 2
+        }
+      ]
     }
   },
 
@@ -134,6 +319,60 @@ const courses = [
       rating: 4.7,
       students: 8900,
       courses: 6
+    },
+
+    // Unique intermediate quiz (Finance)
+    quiz: {
+      _id: "local-q-finance-4",
+      title: "Startup Finance Intermediate Quiz",
+      estimatedMins: 12,
+      passingPercentage: 65,
+      questions: [
+        {
+          _id: "f-int-1",
+          text: "What does 'runway' measure for a startup?",
+          options: [
+            { id: "a", text: "Time until next fundraising" },
+            { id: "b", text: "Months of operating cash remaining at current burn" },
+            { id: "c", text: "Number of customers" }
+          ],
+          correctOptionId: "b",
+          points: 2
+        },
+        {
+          _id: "f-int-2",
+          text: "Which statement shows cash inflows and outflows?",
+          options: [
+            { id: "a", text: "Balance Sheet" },
+            { id: "b", text: "Income Statement" },
+            { id: "c", text: "Cash Flow Statement" }
+          ],
+          correctOptionId: "c",
+          points: 2
+        },
+        {
+          _id: "f-int-3",
+          text: "If gross margin is low, you should consider:",
+          options: [
+            { id: "a", text: "Reducing COGS or raising price" },
+            { id: "b", text: "Hiring more salespeople only" },
+            { id: "c", text: "Cutting marketing to zero" }
+          ],
+          correctOptionId: "a",
+          points: 2
+        },
+        {
+          _id: "f-int-4",
+          text: "A reasonable financial forecast should include:",
+          options: [
+            { id: "a", text: "Unrealistic best-case revenue only" },
+            { id: "b", text: "Revenue, costs, capital needs, and scenarios" },
+            { id: "c", text: "Only funding history" }
+          ],
+          correctOptionId: "b",
+          points: 2
+        }
+      ]
     }
   },
 
@@ -167,6 +406,60 @@ const courses = [
       rating: 4.9,
       students: 15420,
       courses: 10
+    },
+
+    // Unique intermediate quiz (Advanced React)
+    quiz: {
+      _id: "local-q-react-5",
+      title: "React Advanced Intermediate Quiz",
+      estimatedMins: 12,
+      passingPercentage: 65,
+      questions: [
+        {
+          _id: "ra-int-1",
+          text: "Which hook is used to memoize a value between renders?",
+          options: [
+            { id: "a", text: "useMemo" },
+            { id: "b", text: "useEffect" },
+            { id: "c", text: "useCallback" }
+          ],
+          correctOptionId: "a",
+          points: 2
+        },
+        {
+          _id: "ra-int-2",
+          text: "What is the best practice for fetching data in React components?",
+          options: [
+            { id: "a", text: "Fetch inside useEffect and handle loading/error states" },
+            { id: "b", text: "Fetch in render body synchronously" },
+            { id: "c", text: "Fetch only on server without hydration" }
+          ],
+          correctOptionId: "a",
+          points: 2
+        },
+        {
+          _id: "ra-int-3",
+          text: "For unit testing React components, which library is a common choice?",
+          options: [
+            { id: "a", text: "Jest with React Testing Library" },
+            { id: "b", text: "Selenium only" },
+            { id: "c", text: "Photoshop" }
+          ],
+          correctOptionId: "a",
+          points: 2
+        },
+        {
+          _id: "ra-int-4",
+          text: "When using Context, which issue should you watch for?",
+          options: [
+            { id: "a", text: "Unnecessary re-renders of deep tree" },
+            { id: "b", text: "Better performance than local state always" },
+            { id: "c", text: "Context replaces redux entirely" }
+          ],
+          correctOptionId: "a",
+          points: 2
+        }
+      ]
     }
   },
 
@@ -200,6 +493,49 @@ const courses = [
       rating: 4.6,
       students: 5430,
       courses: 5
+    },
+
+    // Unique intermediate quiz (Personal Finance)
+    quiz: {
+      _id: "local-q-fin-6",
+      title: "Personal Finance Intermediate Quiz",
+      estimatedMins: 10,
+      passingPercentage: 60,
+      questions: [
+        {
+          _id: "pf-int-1",
+          text: "What is an emergency fund recommended for?",
+          options: [
+            { id: "a", text: "Unexpected expenses like medical bills or job loss" },
+            { id: "b", text: "Luxury purchases" },
+            { id: "c", text: "Long-term retirement only" }
+          ],
+          correctOptionId: "a",
+          points: 2
+        },
+        {
+          _id: "pf-int-2",
+          text: "Diversification means:",
+          options: [
+            { id: "a", text: "Putting all money into a single high-return stock" },
+            { id: "b", text: "Spreading investments across asset classes to reduce risk" },
+            { id: "c", text: "Keeping all money as cash" }
+          ],
+          correctOptionId: "b",
+          points: 2
+        },
+        {
+          _id: "pf-int-3",
+          text: "What is a sensible next step after paying off high-interest debt?",
+          options: [
+            { id: "a", text: "Build emergency fund and then invest regularly" },
+            { id: "b", text: "Take another loan" },
+            { id: "c", text: "Spend the freed-up cash immediately" }
+          ],
+          correctOptionId: "a",
+          points: 2
+        }
+      ]
     }
   }
 ];

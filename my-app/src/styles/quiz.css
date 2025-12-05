@@ -1,0 +1,129 @@
+.quiz-container {
+    max-width: 800px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  }
+  
+  .quiz-header h1 {
+    margin: 0 0 0.5rem;
+    color: #1f2937;
+  }
+  
+  .quiz-header p {
+    color: #6b7280;
+    font-size: 1.1rem;
+  }
+  
+  .question-block {
+    margin: 2rem 0;
+    padding: 1.5rem;
+    background: #f8fafc;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+  }
+  
+  .question-block h3 {
+    margin: 0 0 1rem;
+    color: #1e40af;
+    font-size: 1.2rem;
+  }
+  
+  .options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 1rem;
+  }
+  
+  .option input {
+    margin: 0;
+    transform: scale(1.2);
+  }
+  
+  .option:hover {
+    background: #f0f4ff !important;
+  }
+  
+  .selected {
+    background: #e0e7ff !important;
+    border-color: #6366f1 !important;
+  }
+  
+  .correct {
+    background: #d1fae5 !important;
+    border-color: #10b981 !important;
+    color: #065f46;
+  }
+  
+  .wrong {
+    background: #fee2e2 !important;
+    border-color: #ef4444 !important;
+    color: #991b1b;
+  }
+  
+  .checkmark {
+    margin-left: auto;
+    font-weight: bold;
+    font-size: 0.9rem;
+  }
+  
+  .submit-btn {
+    background: #7c3aed;
+    color: white;
+    padding: 14px 32px;
+    font-size: 1.1rem;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    margin-top: 2rem;
+  }
+  
+  .submit-btn:hover {
+    background: #6d28d9;
+  }
+  
+  .results {
+    text-align: center;
+    padding: 2rem;
+    margin: 2rem 0;
+    background: #f0fdf4;
+    border-radius: 16px;
+    border: 2px solid #10b981;
+  }
+  
+  .results h2 {
+    color: #166534;
+    margin-bottom: 1rem;
+  }
+  
+  .success-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
+  }
+  
+  .btn {
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-block;
+  }
+  
+  .btn.primary { background: #7c3aed; color: white; }
+  .btn.success { background: #10b981; color: white; }

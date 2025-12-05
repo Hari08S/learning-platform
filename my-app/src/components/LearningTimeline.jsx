@@ -1,26 +1,44 @@
-// src/components/LearningTimeline.jsx
 import React from 'react';
 import { relativeTime } from '../utils/time';
- // optional small local css; I also included main CSS changes below
 
 const iconForType = {
   purchase: '🛒',
   lesson_completed: '✅',
+  course_completed: '🏁',
   certificate_issued: '📜',
-  streak: '🔥'
+  streak: '🔥',
+  viewed: '👀'
 };
 
 export default function LearningTimeline({ events = [] }) {
-  // events: [{ id, type, title, courseId, time, meta }]
+  // Filter timeline for meaningful events and dedupe
+  const filtered = (Array.isArray(events) ? events : []).filter(ev => {
+    if (!ev || !ev.type) return false;
+    if (ev.type === 'purchase') return false; // purchases in settings
+    if (ev.type === 'viewed' && (ev.meta?.percent === 0 || ev.meta?.percent == null)) return false;
+    return true;
+  });
+
+  const deduped = [];
+  for (const ev of filtered) {
+    const last = deduped[deduped.length - 1];
+    if (last && last.type === ev.type && last.title === ev.title && String(last.courseId) === String(ev.courseId)) {
+      continue;
+    }
+    deduped.push(ev);
+  }
+
+  const visible = deduped.slice(0, 5);
+
   return (
     <div style={{ marginTop: 24 }}>
       <h3 style={{ marginBottom: 10 }}>Learning Timeline</h3>
       <div style={{ display: 'grid', gap: 12 }}>
-        {events.length === 0 ? (
+        {visible.length === 0 ? (
           <div style={{ color: '#64748B' }}>No recent activity — start a lesson to see timeline items.</div>
         ) : (
-          events.map(ev => (
-            <div key={ev.id} style={{
+          visible.map(ev => (
+            <div key={ev.id || (ev.type + '-' + (ev.courseId || ev.time || Math.random()))} style={{
               display: 'flex',
               gap: 12,
               alignItems: 'flex-start',

@@ -1,18 +1,11 @@
-// src/components/PurchaseHistoryModal.jsx
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
 
-/**
- * PurchaseHistoryModal
- * - Uses /api/me/progress which the Dashboard already relies on and returns:
- *   { purchasedCourses: [...], progress: [...] }
- * - Filters out purchases that are missing resolvable course metadata (no title).
- */
 export default function PurchaseHistoryModal({ open, onClose }) {
   const [loading, setLoading] = useState(false);
-  const [purchases, setPurchases] = useState([]); // normalized rows
+  const [purchases, setPurchases] = useState([]);
   const [err, setErr] = useState('');
 
   useEffect(() => {
@@ -26,7 +19,6 @@ export default function PurchaseHistoryModal({ open, onClose }) {
         const token = localStorage.getItem('token');
         if (!token) throw new Error('Not authenticated');
 
-        // Use the same endpoint Dashboard uses: /api/me/progress
         const res = await fetch(`${API_BASE}/api/me/progress`, {
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -42,10 +34,8 @@ export default function PurchaseHistoryModal({ open, onClose }) {
         }
 
         const js = await res.json();
-        // js.purchasedCourses should already be normalized by server (courseId, title, img, status, purchasedAt)
         const rawPurch = Array.isArray(js.purchasedCourses) ? js.purchasedCourses : [];
 
-        // Filter out orphan/untitled ones and ensure courseId exists
         const normalized = rawPurch
           .map(p => {
             return {
@@ -60,7 +50,6 @@ export default function PurchaseHistoryModal({ open, onClose }) {
               raw: p.raw || p
             };
           })
-          // remove entries without a resolvable title or courseId
           .filter(p => p.courseId && p.title);
 
         if (!mounted) return;
@@ -77,7 +66,6 @@ export default function PurchaseHistoryModal({ open, onClose }) {
 
     loadPurchases();
 
-    // refresh on events
     function onUpdated() {
       loadPurchases().catch(() => {});
     }
@@ -104,7 +92,6 @@ export default function PurchaseHistoryModal({ open, onClose }) {
         const body = ct.includes('application/json') ? (await res.json()).message : await res.text();
         throw new Error(body || `Server ${res.status}`);
       }
-      // refresh view
       window.dispatchEvent(new Event('purchases.updated'));
     } catch (err) {
       console.error('cancel error', err);
@@ -154,7 +141,6 @@ export default function PurchaseHistoryModal({ open, onClose }) {
         <div style={{
           padding: 14,
           overflowY: 'auto',
-          // ensure the list area gets internal scroll (fixes page scroll locked behind modal)
           flex: '1 1 auto'
         }}>
           {loading ? (

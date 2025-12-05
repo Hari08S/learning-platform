@@ -1,4 +1,3 @@
-// src/components/QuickActions.jsx
 import React from 'react';
 
 export default function QuickActions({ lastCourseId, onResume, onDownloadCertificate, onSetGoal }) {

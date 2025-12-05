@@ -6,73 +6,138 @@ import '../styles/courses.css';
 import LearningTimeline from './LearningTimeline';
 import AchievementsRow from './AchievementsRow';
 import QuickActions from './QuickActions';
+import PurchaseHistoryModal from './PurchaseHistoryModal';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
 
-/** helpers */
-const normId = v => (v && typeof v === 'object') ? String(v._id || v) : String(v || '');
+/**
+ * Normalizes courseId-like values to a string or '' when invalid.
+ */
+const normId = v => {
+  if (!v && v !== 0) return '';
+  try {
+    if (typeof v === 'object') {
+      const candidate = v._id ?? v.id ?? v.courseId ?? v;
+      if (!candidate) return '';
+      return String(candidate);
+    }
+    return String(v);
+  } catch (e) {
+    return '';
+  }
+};
+
+/**
+ * computeFromProgress (fallback)
+ * Basic sanitization — but the dashboard uses a stricter rule (only visible purchases
+ * with percent >=100 and quizPassed === true are counted as Completed).
+ */
+function computeFromProgress(progressList = []) {
+  const list = Array.isArray(progressList) ? progressList : [];
+  const completedCourseIds = new Set();
+  let hours = 0;
+
+  list.forEach(p => {
+    if (!p || !p.courseId) return;
+    const cid = normId(p.courseId);
+    if (!cid) return;
+
+    const pct = Number(p.percent || 0);
+    if (pct >= 100) completedCourseIds.add(cid);
+
+    let h = Number(p.hoursLearned || 0);
+    if (!isFinite(h) || h < 0) h = 0;
+    if (h > 50) h = 0;
+    hours += h;
+  });
+
+  return { completedCount: completedCourseIds.size, hoursLearned: hours };
+}
 
 const Dashboard = () => {
   const nav = useNavigate();
-
   const [userName, setUserName] = useState('');
   const [loadingUser, setLoadingUser] = useState(true);
-
   const [activeCourses, setActiveCourses] = useState(0);
   const [completedCount, setCompletedCount] = useState(0);
   const [hoursLearned, setHoursLearned] = useState(0);
   const [streakDays, setStreakDays] = useState(0);
-
   const [purchasedCourses, setPurchasedCourses] = useState([]);
   const [loadingPurchases, setLoadingPurchases] = useState(true);
   const [errMsg, setErrMsg] = useState('');
-
   const [timeline, setTimeline] = useState([]);
   const [badges, setBadges] = useState([]);
   const [lastCourseId, setLastCourseId] = useState(null);
+  const [purchasesOpen, setPurchasesOpen] = useState(false);
 
-  // Load dashboard state from server
-  const loadFromServer = async (token) => {
+  /**
+   * fmtHours: minutes for <1h, 1-decimal hours for >=1h
+   */
+  const fmtHours = (val) => {
+    let hours = Number(val || 0);
+    if (!isFinite(hours) || hours <= 0) return '0 h';
+
+    if (hours < 1) {
+      const mins = Math.round(hours * 60);
+      return `${mins} min`;
+    }
+
+    const dec = Number(hours.toFixed(1));
+    if (dec > 1000) return '999+ h';
+    return `${dec.toFixed(1)} h`;
+  };
+
+  const refreshAndLoad = async (token) => {
     setLoadingUser(true);
     setLoadingPurchases(true);
     setErrMsg('');
     try {
+      // best-effort user name
       try {
         const meRes = await fetch(`${API_BASE}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` }});
         if (meRes.ok) {
           const meJson = await meRes.json();
           setUserName(meJson.user?.name || meJson.user?.email || '');
         }
-      } catch (e) { /* non-fatal */ }
+      } catch (e) { /* ignore */ }
 
       const progRes = await fetch(`${API_BASE}/api/me/progress`, { headers: { Authorization: `Bearer ${token}` }});
       if (!progRes.ok) {
         if (progRes.status === 401 || progRes.status === 403) {
           setErrMsg('You need to sign in to view your dashboard.');
-          setPurchasedCourses([]);
-          setActiveCourses(0);
-          setCompletedCount(0);
-          setHoursLearned(0);
-          setStreakDays(0);
+          setLoadingUser(false);
+          setLoadingPurchases(false);
           return;
         }
         throw new Error(`Server responded ${progRes.status}`);
       }
-
       const js = await progRes.json();
+
       const serverPurchases = Array.isArray(js.purchasedCourses) ? js.purchasedCourses : [];
       const progressList = Array.isArray(js.progress) ? js.progress : [];
 
-      // Build a map of progress by courseId (string)
+      // fallback summary
+      const summary = computeFromProgress(progressList);
+      setStreakDays(Number(js.streakDays || 0));
+
+      // build progress map (dedupe)
       const progressMap = {};
       progressList.forEach(p => {
         const pid = normId(p.courseId);
         if (!pid) return;
-        const percent = typeof p.percent === 'number' ? p.percent : Number(p.percent) || 0;
-        progressMap[pid] = { ...p, courseId: pid, percent };
+        const existing = progressMap[pid];
+        if (!existing) {
+          progressMap[pid] = { ...p, courseId: pid };
+        } else {
+          existing.percent = Math.max(Number(existing.percent || 0), Number(p.percent || 0));
+          existing.hoursLearned = Math.max(Number(existing.hoursLearned || 0), Number(p.hoursLearned || 0) || 0);
+          existing.quizPassed = existing.quizPassed || !!p.quizPassed;
+          existing.completedAt = existing.completedAt || p.completedAt;
+          progressMap[pid] = existing;
+        }
       });
 
-      // Keep only active purchases and with valid courseId (normalize id)
+      // prepare purchases and fetch missing metadata
       const activePurchases = serverPurchases
         .filter(pc => (pc.status || 'active') === 'active' && Boolean(pc.courseId))
         .map(pc => ({ pc, cid: normId(pc.courseId) }));
@@ -81,7 +146,7 @@ const Dashboard = () => {
       const fetchTasks = [];
 
       activePurchases.forEach(({ pc, cid }) => {
-        // If backend returned title/img already, use them
+        if (!cid) return;
         if (pc && typeof pc === 'object' && (pc.title || (pc.courseId && typeof pc.courseId === 'object' && pc.courseId.title))) {
           const courseObj = (typeof pc.courseId === 'object' && pc.courseId.title) ? pc.courseId : {};
           items.push({
@@ -90,7 +155,7 @@ const Dashboard = () => {
             author: pc.author || courseObj.author || 'Author',
             img: pc.img || courseObj.img || '/logo.png',
             price: pc.price != null ? pc.price : '',
-            progress: progressMap[cid] || { percent: 0, hoursLearned: 0 },
+            progress: progressMap[cid] || { percent: 0, hoursLearned: 0, quizPassed: false },
             raw: pc
           });
         } else {
@@ -102,10 +167,7 @@ const Dashboard = () => {
         const fetches = fetchTasks.map(async ({ cid, pc }) => {
           try {
             const r = await fetch(`${API_BASE}/api/courses/${cid}`);
-            if (!r.ok) {
-              console.warn(`Course ${cid} fetch failed: ${r.status}`);
-              return null;
-            }
+            if (!r.ok) return null;
             const js2 = await r.json();
             const c = js2.course;
             if (!c || !c.title) return null;
@@ -115,15 +177,11 @@ const Dashboard = () => {
               author: c.author || pc.author || 'Author',
               img: c.img || pc.img || '/logo.png',
               price: pc.price != null ? pc.price : (c.price || ''),
-              progress: progressMap[cid] || { percent: 0, hoursLearned: 0 },
+              progress: progressMap[cid] || { percent: 0, hoursLearned: 0, quizPassed: false },
               raw: pc
             };
-          } catch (e) {
-            console.warn('fetch course meta failed', cid, e);
-            return null;
-          }
+          } catch (e) { return null; }
         });
-
         const results = await Promise.all(fetches);
         results.forEach(r => { if (r) items.push(r); });
       }
@@ -131,10 +189,35 @@ const Dashboard = () => {
       const visibleItems = items.filter(i => i && i.courseId);
       setPurchasedCourses(visibleItems);
       setActiveCourses(visibleItems.length);
-      setCompletedCount(js.completedCount || 0);
-      setHoursLearned(js.hoursLearned || 0);
-      setStreakDays(js.streakDays || 0);
 
+      // compute completedCount/hours only for visible purchases
+      const visibleSet = new Set(visibleItems.map(i => String(i.courseId)));
+      const completedSet = new Set();
+      let visibleHours = 0;
+
+      Object.keys(progressMap).forEach(pid => {
+        if (!visibleSet.has(pid)) return;
+        const p = progressMap[pid];
+        const pct = Number(p.percent || 0);
+        const quizPassed = !!p.quizPassed;
+        // strict rule: both percent >=100 and quizPassed true
+        if (pct >= 100 && quizPassed) completedSet.add(pid);
+
+        let h = Number(p.hoursLearned || 0);
+        if (!isFinite(h) || h < 0) h = 0;
+        if (h > 50) h = 0;
+        visibleHours += h;
+      });
+
+      if (visibleItems.length === 0) {
+        setCompletedCount(summary.completedCount);
+        setHoursLearned(summary.hoursLearned);
+      } else {
+        setCompletedCount(completedSet.size);
+        setHoursLearned(visibleHours);
+      }
+
+      // load timeline/badges (best-effort)
       try {
         const [actRes, badgesRes] = await Promise.all([
           fetch(`${API_BASE}/api/me/activity`, { headers: { Authorization: `Bearer ${token}` } }),
@@ -142,53 +225,17 @@ const Dashboard = () => {
         ]);
         if (actRes.ok) {
           const ajs = await actRes.json();
-          setTimeline(Array.isArray(ajs.events) ? ajs.events : []);
-          if (ajs.events?.length) setLastCourseId(ajs.events[0].courseId || visibleItems[0]?.courseId);
-        } else {
-          setTimeline([]);
+          setTimeline(Array.isArray(ajs.events) ? ajs.events.slice(0, 5) : []);
         }
         if (badgesRes.ok) {
           const bjs = await badgesRes.json();
           setBadges(Array.isArray(bjs.badges) ? bjs.badges : []);
-        } else {
-          setBadges([]);
         }
-      } catch (e) {
-        const derived = [];
-        (visibleItems || []).forEach(pc => {
-          derived.push({
-            id: `p-${pc.courseId}`,
-            type: 'purchase',
-            title: `Purchased: ${pc.title}`,
-            courseId: pc.courseId,
-            time: pc.raw?.purchasedAt || new Date().toISOString(),
-            meta: { courseTitle: pc.title, price: pc.price }
-          });
-        });
-        (progressList || []).forEach(p => {
-          const pid = normId(p.courseId);
-          derived.push({
-            id: `prog-${pid}`,
-            type: 'lesson_completed',
-            title: `Progress: ${p.percent}% — ${pid}`,
-            courseId: pid,
-            time: p.lastSeenAt || new Date().toISOString(),
-            meta: { percent: p.percent }
-          });
-        });
-        derived.sort((a, b) => new Date(b.time) - new Date(a.time));
-        setTimeline(derived.slice(0, 20));
-      }
+      } catch (e) { /* ignore */ }
+
     } catch (err) {
       console.error('Dashboard load error', err);
       setErrMsg(err.message || 'Could not load dashboard data');
-      setPurchasedCourses([]);
-      setActiveCourses(0);
-      setCompletedCount(0);
-      setHoursLearned(0);
-      setStreakDays(0);
-      setTimeline([]);
-      setBadges([]);
     } finally {
       setLoadingUser(false);
       setLoadingPurchases(false);
@@ -198,7 +245,7 @@ const Dashboard = () => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
-      loadFromServer(token);
+      refreshAndLoad(token);
     } else {
       setLoadingUser(false);
       setLoadingPurchases(false);
@@ -207,12 +254,10 @@ const Dashboard = () => {
 
     const onUpdated = () => {
       const t = localStorage.getItem('token');
-      if (t) loadFromServer(t);
+      if (t) refreshAndLoad(t);
     };
-
     window.addEventListener('purchases.updated', onUpdated);
     window.addEventListener('user.updated', onUpdated);
-
     return () => {
       window.removeEventListener('purchases.updated', onUpdated);
       window.removeEventListener('user.updated', onUpdated);
@@ -222,167 +267,83 @@ const Dashboard = () => {
   const handleCancel = async (courseId) => {
     if (!window.confirm('Are you sure you want to cancel this purchase?')) return;
     const token = localStorage.getItem('token');
-    if (!token) {
-      alert('You must be signed in to cancel purchases.');
-      return;
-    }
+    if (!token) return;
     try {
       const res = await fetch(`${API_BASE}/api/purchases/${courseId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
-      if (!res.ok) {
-        const ct = res.headers.get('content-type') || '';
-        let msg = `Server responded ${res.status}`;
-        if (ct.includes('application/json')) {
-          const j = await res.json();
-          msg = j.message || msg;
-        } else {
-          const t = await res.text();
-          msg = t || msg;
-        }
-        throw new Error(msg);
+      if(res.ok) {
+        setPurchasedCourses(prev => prev.filter(pc => String(pc.courseId) !== String(courseId)));
+        window.dispatchEvent(new Event('purchases.updated'));
       }
-
-      setPurchasedCourses(prev => prev.filter(pc => String(pc.courseId) !== String(courseId)));
-      window.dispatchEvent(new Event('purchases.updated'));
-    } catch (err) {
-      console.error('Cancel failed', err);
-      alert('Could not cancel purchase: ' + (err.message || 'Server error'));
-    }
+    } catch(err) { alert(err.message); }
   };
 
   const CourseCard = ({ c }) => {
-    const percent = (c.progress && typeof c.progress.percent === 'number') ? c.progress.percent : 0;
+    const rawProgress = c.progress || {};
+    let percent = (typeof rawProgress.percent === 'number') ? rawProgress.percent : Number(rawProgress.percent || 0);
+    // keep UX: show 99% if percent >=100 but user hasn't passed quiz
+    if (percent >= 100 && !rawProgress.quizPassed) percent = 99;
     const thumb = c.img && typeof c.img === 'string' ? c.img : '/logo.png';
-
     return (
       <article className="course-card small-card" style={{ width: 320, marginBottom: 18 }}>
-        <div className="card-media" style={{
-          height: 150,
-          borderRadius: 8,
-          overflow: 'hidden',
-          display: 'block',
-          backgroundColor: '#f3f4f6'
-        }}>
-          <img src={thumb} alt={c.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        <div className="card-media" style={{ height: 150, borderRadius: 8, overflow: 'hidden', backgroundColor: '#f3f4f6' }}>
+          <img src={thumb} alt={c.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
         <div className="card-body" style={{ paddingTop: 12 }}>
           <h3 className="card-title" style={{ marginBottom: 6 }}>{c.title}</h3>
           <p className="card-author" style={{ margin: 0, color: '#6b7280' }}>{c.author}</p>
-
           <div style={{ marginTop: 12 }}>
             <div style={{ height: 8, background: '#eef2f7', borderRadius: 6, overflow: 'hidden' }}>
               <div style={{ width: `${Math.min(100, percent)}%`, height: '100%', background: '#7c3aed' }} />
             </div>
             <div style={{ marginTop: 8, color: '#6b7280', fontSize: 13 }}>{percent}% completed</div>
           </div>
-
           <div className="card-actions" style={{ marginTop: 12 }}>
-            <button className="btn primary" onClick={() => nav(`/courses/${c.courseId}`)} style={{ flex: 1 }}>
-              Continue Learning
-            </button>
-            <button className="btn outline" onClick={() => handleCancel(c.courseId)}>
-              Cancel
-            </button>
+            <button className="btn primary" onClick={() => nav(`/courses/${c.courseId}`)} style={{ flex: 1 }}>Continue Learning</button>
+            <button className="btn outline" onClick={() => handleCancel(c.courseId)}>Cancel</button>
           </div>
         </div>
       </article>
     );
   };
 
-  const displayName = (() => {
-    if (loadingUser) return '...';
-    if (!userName) return 'Learner';
-    return userName;
-  })();
-
-  const resumeLast = (courseId) => {
-    if (!courseId) return;
-    nav(`/courses/${courseId}`);
-  };
-
-  const downloadLastCert = (courseId) => {
-    if (!courseId) return alert('No certificate found');
-    nav(`/courses/${courseId}`);
-  };
-
-  const setWeeklyGoal = () => {
-    const g = prompt('Set a weekly minutes goal (e.g. 120)', '120');
-    if (g) alert(`Weekly goal set to ${g} minutes — nice!`);
-  };
+  const displayName = loadingUser ? '...' : (userName || 'Learner');
+  const resumeLast = (id) => id && nav(`/courses/${id}`);
+  const downloadLastCert = (id) => id && nav(`/courses/${id}`);
 
   return (
     <div className="dash-container container" style={{ paddingTop: 24, paddingBottom: 48 }}>
-      <h1 className="dash-title">Welcome back, {displayName}! <span style={{ marginLeft: 8 }}>👋</span></h1>
-      <p className="dash-sub">Continue your learning journey</p>
-
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-        gap: 16,
-        marginTop: 18
-      }}>
-        <div style={{ background: '#FFEDEE', borderRadius: 12, padding: '18px 20px', boxShadow: '0 8px 20px rgba(2,6,23,0.04)' }}>
-          <div style={{ fontSize: 14, color: '#0f172a', fontWeight: 700, marginBottom: 6 }}>Active Courses</div>
+      <h1 className="dash-title">Welcome back, {displayName}! 👋</h1>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginTop: 18 }}>
+        <div style={{ background: '#FFEDEE', borderRadius: 12, padding: '18px 20px' }}>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>Active Courses</div>
           <div style={{ fontSize: 28, fontWeight: 800, color: '#FF6B6B' }}>{activeCourses}</div>
         </div>
-
-        <div style={{ background: '#E8FFFC', borderRadius: 12, padding: '18px 20px', boxShadow: '0 8px 20px rgba(2,6,23,0.04)' }}>
-          <div style={{ fontSize: 14, color: '#0f172a', fontWeight: 700, marginBottom: 6 }}>Completed</div>
+        <div style={{ background: '#E8FFFC', borderRadius: 12, padding: '18px 20px' }}>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>Completed</div>
           <div style={{ fontSize: 28, fontWeight: 800, color: '#4ECDC4' }}>{completedCount}</div>
         </div>
-
-        <div style={{ background: '#E8F9FB', borderRadius: 12, padding: '18px 20px', boxShadow: '0 8px 20px rgba(2,6,23,0.04)' }}>
-          <div style={{ fontSize: 14, color: '#0f172a', fontWeight: 700, marginBottom: 6 }}>Hours Learned</div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: '#45B7D1' }}>{hoursLearned}</div>
+        <div style={{ background: '#E8F9FB', borderRadius: 12, padding: '18px 20px' }}>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>Hours Learned</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: '#45B7D1' }}>{fmtHours(hoursLearned)}</div>
         </div>
-
-        <div style={{ background: '#FFF8DF', borderRadius: 12, padding: '18px 20px', boxShadow: '0 8px 20px rgba(2,6,23,0.04)' }}>
-          <div style={{ fontSize: 14, color: '#0f172a', fontWeight: 700, marginBottom: 6 }}>Learning Streak</div>
+        <div style={{ background: '#FFF8DF', borderRadius: 12, padding: '18px 20px' }}>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>Learning Streak</div>
           <div style={{ fontSize: 28, fontWeight: 800, color: '#F9CA24' }}>{streakDays} days</div>
         </div>
       </div>
-
       <div style={{ marginTop: 28 }}>
         <h2 style={{ marginBottom: 12 }}>Your Courses</h2>
-
-        {loadingPurchases ? (
-          <div style={{ padding: 18 }}>Loading your courses...</div>
-        ) : errMsg ? (
-          <div style={{ padding: 18, color: '#6b7280' }}>
-            {errMsg}
-            {errMsg.includes('sign in') && (
-              <div style={{ marginTop: 10 }}>
-                <Link to="/login" className="btn">Sign in</Link>
-              </div>
-            )}
-          </div>
-        ) : purchasedCourses.length === 0 ? (
-          <div style={{ padding: 18, color: '#6b7280' }}>
-            You have no purchased courses yet. Browse <Link to="/courses">courses</Link> to get started.
-          </div>
-        ) : (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: 18,
-            marginTop: 12
-          }}>
-            {purchasedCourses.map((c) => (
-              <CourseCard key={String(c.courseId)} c={c} />
-            ))}
+        {loadingPurchases ? <div>Loading...</div> : purchasedCourses.length === 0 ? <div>No courses yet.</div> : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 18 }}>
+            {purchasedCourses.map((c) => <CourseCard key={String(c.courseId)} c={c} />)}
           </div>
         )}
       </div>
-
       <div style={{ marginTop: 32 }}>
-        <QuickActions
-          lastCourseId={lastCourseId}
-          onResume={resumeLast}
-          onDownloadCertificate={downloadLastCert}
-          onSetGoal={setWeeklyGoal}
-        />
+        <QuickActions lastCourseId={lastCourseId} onResume={resumeLast} onDownloadCertificate={downloadLastCert} />
         <AchievementsRow badges={badges} />
         <LearningTimeline events={timeline} />
       </div>

@@ -17,6 +17,13 @@ export default function CourseDetail() {
   const [purchased, setPurchased] = useState(false);
   const [userProgressForCourse, setUserProgressForCourse] = useState(null);
 
+  // NEW: quiz state (optional server-provided)
+  const [quiz, setQuiz] = useState(null);
+  const [quizAvailableOnServer, setQuizAvailableOnServer] = useState(false);
+
+  // helper resolve id
+  const courseIdResolved = () => course && (course._id || course.id) ? String(course._id || course.id) : String(id);
+
   useEffect(() => {
     let cancelled = false;
     async function load() {
@@ -42,18 +49,19 @@ export default function CourseDetail() {
   }, [id]);
 
   useEffect(() => {
-    // existing code...
-    // set current course for presence tracker
-    localStorage.setItem('currentCourseId', String(id || (course && (course._id || course.id))));
+    try {
+      localStorage.setItem('currentCourseId', String(id || (course && (course._id || course.id))));
+    } catch (e) { /* ignore storage errors */ }
     return () => {
-      // clear when leaving course detail
-      const cur = localStorage.getItem('currentCourseId');
-      if (cur && String(cur) === String(id || (course && (course._id || course.id)))) {
-        localStorage.removeItem('currentCourseId');
-      }
+      try {
+        const cur = localStorage.getItem('currentCourseId');
+        if (cur && String(cur) === String(id || (course && (course._id || course.id)))) {
+          localStorage.removeItem('currentCourseId');
+        }
+      } catch (e) {}
     };
   }, [id, course]);
-  
+
   useEffect(() => {
     if (!course) return;
     const candidate = course.img && typeof course.img === 'string'
@@ -104,6 +112,63 @@ export default function CourseDetail() {
       window.removeEventListener('user.updated', onUpdated);
       mounted = false;
     };
+  }, [id, course]);
+
+  // NEW: fetch quiz metadata for this course (if any) — but we will show final quiz regardless
+  useEffect(() => {
+    if (!id && !course) return;
+    let mounted = true;
+    async function fetchQuiz() {
+      try {
+        const resolvedId = courseIdResolved();
+        const token = localStorage.getItem('token');
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+        // try multiple common endpoints (first match wins)
+        const endpoints = [
+          `${API_BASE}/api/courses/${resolvedId}/quiz`,      // matches server/routes/quiz.js GET('/courses/:courseId/quiz')
+          `${API_BASE}/api/quizzes/course/${resolvedId}`,    // old client path - keep as fallback
+          `${API_BASE}/api/quizzes/courses/${resolvedId}/quiz`,
+          `${API_BASE}/api/quizzes/${resolvedId}/quiz`
+        ];
+
+        let got = false;
+        for (const url of endpoints) {
+          try {
+            const r = await fetch(url, { headers });
+            if (r.status === 404) continue; // not found — try next
+            if (r.status === 401 || r.status === 403) {
+              // quiz exists but protected — mark available (details hidden)
+              if (mounted) { setQuiz(null); setQuizAvailableOnServer(true); }
+              got = true;
+              break;
+            }
+            if (!r.ok) continue;
+            const j = await r.json();
+            const quizObj = j.quiz || j;
+            if (mounted) {
+              setQuiz(quizObj);
+              setQuizAvailableOnServer(true);
+            }
+            got = true;
+            break;
+          } catch (err) {
+            console.warn('quiz fetch try failed', url, err);
+            continue;
+          }
+        }
+
+        if (!got && mounted) {
+          setQuiz(null);
+          setQuizAvailableOnServer(false);
+        }
+      } catch (err) {
+        console.error('fetch quiz failed', err);
+        if (mounted) { setQuiz(null); setQuizAvailableOnServer(false); }
+      }
+    }
+    fetchQuiz();
+    return () => { mounted = false; };
   }, [id, course]);
 
   if (loading) return <div className="container" style={{ padding: 48 }}>Loading...</div>;
@@ -201,11 +266,19 @@ export default function CourseDetail() {
 
   const isLessonDone = (lesson) => {
     if (!userProgressForCourse || !userProgressForCourse.completedLessons) return false;
-    // normalize both sides to string
     const doneSet = new Set((userProgressForCourse.completedLessons || []).map(x => String(x)));
     const lid = String(lesson.id ?? lesson._id);
     return doneSet.has(lid);
   };
+
+  // helper to navigate to quiz
+  const openQuiz = () => {
+    if (!purchased) return alert('Please purchase the course to view the quiz.');
+    navigate(`/courses/${course._id || id}/quiz`);
+  };
+
+  // compute quiz module number
+  const quizIndex = (course.curriculum || []).length + 1;
 
   return (
     <div className="container course-detail-page" style={{ padding: "28px 24px 80px" }}>
@@ -280,6 +353,35 @@ export default function CourseDetail() {
                       </div>
                     );
                   })}
+
+                  {/* FINAL QUIZ: always shown as last module */}
+                  <div className="curriculum-item quiz-item" key={`quiz-${quizIndex}`}>
+                    <div className="num">{quizIndex}</div>
+                    <div className="curriculum-body">
+                      <div className="curriculum-title">Final Quiz</div>
+                      <div className="curriculum-meta">
+                        { quizAvailableOnServer && quiz && quiz.estimatedMins ? `${quiz.estimatedMins} min` : '10 min' }
+                        { purchased ? <span className="preview" style={{ marginLeft: 8 }}>✓ Unlocked</span> : <span className="locked" style={{ marginLeft: 8 }}>Locked</span> }
+
+                        {/* show Done if server progress says quizPassed */}
+                        {userProgressForCourse && userProgressForCourse.quizPassed && (
+                          <span style={{ marginLeft: 12, color: '#10B981', fontWeight: 800 }}>✓ Done</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="curriculum-action">
+                      <button
+                        className="btn outline small"
+                        onClick={() => {
+                          if (!purchased) return alert('Please purchase the course to view the quiz.');
+                          openQuiz();
+                        }}
+                      >
+                        View
+                      </button>
+                    </div>
+                  </div>
+
                 </div>
               </>
             )}

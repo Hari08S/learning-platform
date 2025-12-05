@@ -2,7 +2,7 @@
 const mongoose = require('mongoose');
 
 const PurchasedSchema = new mongoose.Schema({
-  courseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Course' },
+  courseId: { type: mongoose.Schema.Types.Mixed, ref: 'Course' }, // accept ObjectId or string
   price: Number,
   purchasedAt: { type: Date, default: Date.now },
   status: { type: String, enum: ['active', 'cancelled'], default: 'active' },
@@ -10,12 +10,14 @@ const PurchasedSchema = new mongoose.Schema({
 }, { _id: false });
 
 const ProgressSchema = new mongoose.Schema({
-  courseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Course' },
+  // make courseId flexible (some seed data uses strings), store either ObjectId or string
+  courseId: { type: mongoose.Schema.Types.Mixed },
   percent: { type: Number, default: 0 },
-  hoursLearned: { type: Number, default: 0 },
+  hoursLearned: { type: Number, default: 0 }, // stored as hours (float)
   lastSeenAt: Date,
   completedAt: Date,
-  completedLessons: [{ type: mongoose.Schema.Types.Mixed }]
+  completedLessons: [{ type: mongoose.Schema.Types.Mixed }],
+  quizPassed: { type: Boolean, default: false }
 }, { _id: false });
 
 const BadgeSchema = new mongoose.Schema({
@@ -34,12 +36,14 @@ const UserSchema = new mongoose.Schema({
   progress: [ProgressSchema],
   badges: [BadgeSchema],
   certificates: [{
-    courseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Course' },
+    courseId: { type: mongoose.Schema.Types.Mixed, ref: 'Course' },
     filename: String,
     issuedOn: Date,
-    certId: String
+    certId: String,
+    title: String
   }],
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
+  streakDays: { type: Number, default: 0 }
 });
 
 // safe export to avoid OverwriteModelError on hot reload/nodemon
