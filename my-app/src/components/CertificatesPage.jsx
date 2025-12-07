@@ -189,6 +189,21 @@ export default function CertificatesPage() {
     nav(`/courses/${courseId}/quiz`);
   };
 
+  // new: handle generating/downloading certificate client-side
+  const handleDownloadCertificate = async (courseMeta, cid) => {
+    try {
+      const userName = localStorage.getItem('name') || localStorage.getItem('userName') || 'Learner';
+      const certId = `${cid}-${Date.now()}`;
+      const safeTitle = (courseMeta?.title || 'certificate').replace(/[^\w\- ]/g, '').replace(/\s+/g, '_');
+      const filename = `${safeTitle}_${certId}.png`;
+      // generateAndDownloadCertificate is declared later in this file and exported
+      await generateAndDownloadCertificate({ course: courseMeta, userName, certId, filename });
+    } catch (e) {
+      console.error('Certificate download failed', e);
+      alert('Could not generate certificate. Try again.');
+    }
+  };
+
   if (loading) {
     return <div className="container" style={{ padding: 48 }}>Loading certificates…</div>;
   }
@@ -208,7 +223,18 @@ export default function CertificatesPage() {
         <div style={{ display: 'grid', gap: 18 }}>
           {items.map((it) => {
             const { meta, progress, purchase, cid, statusText } = it;
-            const percent = Number(progress?.percent || 0);
+            const percentRaw = Number(progress?.percent || 0);
+            const percent = Number.isFinite(percentRaw) ? percentRaw : 0;
+
+            // Behavior rules:
+            // - percent >= 100: allow Download Certificate (and still show Continue)
+            // - Math.round(percent) === 99: show Continue + Take Quiz
+            // - percent < 99: show only Continue
+            const rounded = Math.round(percent);
+            const showDownload = percent >= 100;
+            const showTakeQuiz = rounded === 99;
+            const showContinue = true; // keep Continue visible for all (per your UI). If you want to hide on 100%, change this.
+
             const thumb = meta?.img || '/logo.png';
             return (
               <div key={cid} style={{ background: '#fff', borderRadius: 12, padding: 18, boxShadow: '0 8px 30px rgba(2,6,23,0.04)', display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -235,12 +261,30 @@ export default function CertificatesPage() {
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end' }}>
-                  <button className="btn outline" onClick={() => continueCourse(cid)} style={{ minWidth: 160 }}>
-                    Continue Course
-                  </button>
-                  <button className="btn" onClick={() => goToQuiz(cid)} style={{ minWidth: 160, background: '#7c3aed', color: '#fff' }}>
-                    Take Quiz
-                  </button>
+                  {/* Continue Course is always visible */}
+                  {showContinue && (
+                    <button className="btn outline" onClick={() => continueCourse(cid)} style={{ minWidth: 160 }}>
+                      Continue Course
+                    </button>
+                  )}
+
+                  {/* Show Take Quiz only when rounded percent === 99 */}
+                  {showTakeQuiz && (
+                    <button className="btn" onClick={() => goToQuiz(cid)} style={{ minWidth: 160, background: '#7c3aed', color: '#fff' }}>
+                      Take Quiz
+                    </button>
+                  )}
+
+                  {/* Download when completed (>=100) */}
+                  {showDownload && (
+                    <button
+                      className="btn"
+                      onClick={() => handleDownloadCertificate(meta, cid)}
+                      style={{ minWidth: 160, background: '#059669', color: '#fff' }}
+                    >
+                      Download Certificate
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -249,4 +293,93 @@ export default function CertificatesPage() {
       )}
     </div>
   );
+}
+export async function generateAndDownloadCertificate({ course, userName, certId, issuedOn = new Date(), filename }) {
+  const dateStr = (issuedOn instanceof Date) ? issuedOn.toLocaleDateString() : issuedOn;
+  const title = course.title;
+  const issuer = "UPWISE";
+  const user = userName || "Learner";
+
+  const svg = `
+  <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1130" viewBox="0 0 1600 1130">
+    <defs>
+      <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
+        <stop offset="0" stop-color="#065F46"/>
+        <stop offset="1" stop-color="#10B981"/>
+      </linearGradient>
+    </defs>
+
+    <rect width="100%" height="100%" fill="#fff" rx="20" />
+    <rect x="40" y="40" width="1520" height="1050" rx="18" fill="url(#g)" opacity="0.06" />
+
+    <g transform="translate(120,140)">
+      <text x="0" y="0" font-size="40" font-family="Arial" fill="#065F46" font-weight="800">${issuer} Certificate</text>
+
+      <text x="0" y="120" font-size="26" font-family="Arial" fill="#0f172a">This certifies that</text>
+
+      <text x="0" y="210" font-size="56" font-family="Arial" fill="#0f172a" font-weight="800">${escapeXml(user)}</text>
+
+      <text x="0" y="300" font-size="26" font-family="Arial" fill="#0f172a">has successfully completed the course</text>
+
+      <foreignObject x="0" y="330" width="1360" height="160">
+        <div xmlns="http://www.w3.org/1999/xhtml">
+          <p style="font-family:Arial, Helvetica, sans-serif; font-size:36px; font-weight:800; color:#064e3b; margin:0;">
+            ${escapeXml(title)}
+          </p>
+        </div>
+      </foreignObject>
+
+      <text x="0" y="540" font-size="18" font-family="Arial" fill="#475569">Issued on: ${escapeXml(dateStr)}</text>
+      <text x="0" y="578" font-size="18" font-family="Arial" fill="#475569">Certificate ID: ${escapeXml(certId)}</text>
+
+      <g transform="translate(1060, 420)">
+        <rect x="0" y="0" width="240" height="110" rx="8" fill="#fff" opacity="0.95" />
+        <text x="120" y="58" text-anchor="middle" font-family="Arial" font-size="20" font-weight="700" fill="#065F46">Verified</text>
+      </g>
+    </g>
+  </svg>`;
+
+  const svgBlob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(svgBlob);
+
+  try {
+    const img = await loadImage(url);
+    const canvas = document.createElement("canvas");
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0);
+
+    const blob = await new Promise((res) => canvas.toBlob(res, "image/png"));
+    const dlUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = dlUrl;
+    a.download = filename || `${certId}.png`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    URL.revokeObjectURL(url);
+    URL.revokeObjectURL(dlUrl);
+    return true;
+  } catch (err) {
+    URL.revokeObjectURL(url);
+    throw err;
+  }
+}
+
+function loadImage(src) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => res(img);
+    img.onerror = (e) => rej(e);
+    img.src = src;
+    img.crossOrigin = "anonymous";
+  });
+}
+
+function escapeXml(unsafe) {
+  return String(unsafe || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 }

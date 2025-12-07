@@ -16,6 +16,7 @@ import Settings from './components/Settings.jsx';
 import LessonPage from './components/LessonPage';
 import QuizPage from './components/QuizPage';
 import { startPresenceTracker, stopPresenceTracker } from './utils/presenceTracker';
+import ScrollToTop from './ScrollToTop.jsx'; // 👈 NEW
 
 function Home({ loggedIn }) {
   return (
@@ -51,6 +52,9 @@ function App() {
 
   return (
     <>
+      {/* 👇 This makes every route change scroll to the top */}
+      <ScrollToTop />
+
       <Navbar loggedIn={loggedIn} setLoggedIn={setLoggedIn} />
 
       <main>

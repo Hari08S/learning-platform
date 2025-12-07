@@ -30,6 +30,7 @@ function toNormalizedKey(val) {
 /**
  * computeSummaryFromProgress (BACKEND GET /api/me/progress)
  * Only counts a course as complete when percent >= 100 AND quizPassed === true.
+ * Also safely clamps hours instead of resetting them to 0.
  */
 function computeSummaryFromProgress(progressList = []) {
   const completedCourseIds = new Set();
@@ -51,7 +52,7 @@ function computeSummaryFromProgress(progressList = []) {
     // Sanitize hours
     let h = Number(p.hoursLearned || 0);
     if (!isFinite(h) || h < 0) h = 0;
-    if (h > MAX_HOURS_PER_COURSE) h = 0;
+    if (h > MAX_HOURS_PER_COURSE) h = MAX_HOURS_PER_COURSE; // clamp, don't zero
     hoursLearned += h;
   });
 
@@ -72,13 +73,13 @@ async function resolveCourseMetaFactory() {
     let courseObj = null;
     try {
       if (mongoose.Types.ObjectId.isValid(key)) courseObj = await Course.findById(key).lean();
-    } catch (e) { }
-    
+    } catch (e) { /* ignore */ }
+
     if (!courseObj) {
-      try { courseObj = await Course.findOne({ _id: key }).lean(); } catch (e) { }
+      try { courseObj = await Course.findOne({ _id: key }).lean(); } catch (e) { /* ignore */ }
     }
     if (!courseObj) {
-      try { courseObj = await Course.findOne({ $or: [{ legacyId: key }, { id: key }, { slug: key }] }).lean(); } catch (e) { }
+      try { courseObj = await Course.findOne({ $or: [{ legacyId: key }, { id: key }, { slug: key }] }).lean(); } catch (e) { /* ignore */ }
     }
 
     let meta = null;
@@ -98,6 +99,14 @@ async function resolveCourseMetaFactory() {
 
 /**
  * GET /api/me/progress
+ *
+ * Returns:
+ * - purchasedCourses: enriched purchases (includes cancelled/restored purchases)
+ * - progress: sanitized progress list
+ * - completedCount/hoursLearned/streakDays: summary values computed from sanitized progress
+ *
+ * Note: This endpoint returns ALL purchases (no filtering to only 'active') so UIs that display history
+ * can show cancelled/restored entries. Purchases that are totally invalid (no courseId and no title) are dropped.
  */
 router.get('/progress', requireAuth, async (req, res) => {
   try {
@@ -107,15 +116,17 @@ router.get('/progress', requireAuth, async (req, res) => {
     const user = await User.findById(userId).lean();
     if (!user) return res.status(404).json({ message: 'User not found' });
 
+    // Keep all purchases (do NOT drop cancelled ones) so UIs that show history can render them.
     const rawPurchased = Array.isArray(user.purchasedCourses) ? user.purchasedCourses : [];
-    const purchasedCourses = rawPurchased.filter(pc => (pc && (pc.status || 'active') === 'active'));
+    const purchasedCourses = rawPurchased;
 
     // SANITIZE: Clean up the progress list before sending
     let progressList = Array.isArray(user.progress) ? user.progress : [];
     progressList = progressList.map(p => {
-        let h = Number(p.hoursLearned || 0);
-        if (h > MAX_HOURS_PER_COURSE) h = 0; 
-        return { ...p, hoursLearned: h, quizPassed: !!p.quizPassed };
+      let h = Number(p.hoursLearned || 0);
+      if (!isFinite(h) || h < 0) h = 0;
+      if (h > MAX_HOURS_PER_COURSE) h = MAX_HOURS_PER_COURSE; // clamp
+      return { ...p, hoursLearned: h, quizPassed: !!p.quizPassed };
     });
 
     // Calculate Clean Summary using the stricter rule (percent >=100 && quizPassed)
@@ -126,35 +137,55 @@ router.get('/progress', requireAuth, async (req, res) => {
 
     const enrichedPurchasesTemp = await Promise.all(purchasedCourses.map(async pc => {
       const purchase = pc || {};
-      
-      // Try embedded
+
+      // Try embedded course object first
       if (purchase.courseId && typeof purchase.courseId === 'object' && (purchase.courseId.title || purchase.courseId._id)) {
         const c = purchase.courseId;
         return {
           ...purchase,
-          courseMeta: { _id: String(c._id ?? c.id ?? ''), title: c.title || purchase.title || 'Untitled', img: c.img || purchase.img || '/logo.png', author: c.author || purchase.author || 'Author' }
+          courseMeta: {
+            _id: String(c._id ?? c.id ?? ''),
+            title: c.title || purchase.title || 'Untitled',
+            img: c.img || purchase.img || '/logo.png',
+            author: c.author || purchase.author || 'Author'
+          }
         };
       }
 
       const candidate = purchase.courseId ?? null;
-      const candidateKey = candidate && typeof candidate === 'object' ? (candidate._id ?? candidate.id ?? String(candidate)) : (candidate ? String(candidate) : null);
-      
+      const candidateKey = candidate && typeof candidate === 'object'
+        ? (candidate._id ?? candidate.id ?? String(candidate))
+        : (candidate ? String(candidate) : null);
+
       const hasTitle = purchase.title && String(purchase.title).trim().length > 0;
-      if (!candidateKey && !hasTitle) return null;
+      if (!candidateKey && !hasTitle) {
+        // totally invalid purchase (no id and no title) -> drop
+        return null;
+      }
 
       let meta = null;
       if (candidateKey) meta = await resolveCourseMeta(candidateKey);
 
       if (!meta && !hasTitle) return null;
+
       if (!meta) {
+        // fallback: use title/img from the purchase itself
         return {
           ...purchase,
-          courseMeta: { _id: candidateKey || '', title: purchase.title || 'Untitled', img: purchase.img || '/logo.png', author: purchase.author || 'Author' }
+          courseMeta: {
+            _id: candidateKey || '',
+            title: purchase.title || 'Untitled',
+            img: purchase.img || '/logo.png',
+            author: purchase.author || 'Author'
+          }
         };
       }
+
+      // If meta found, attach it
       return { ...purchase, courseMeta: meta };
     }));
 
+    // drop any nulls produced for totally-invalid purchases
     const enrichedPurchases = (enrichedPurchasesTemp || []).filter(Boolean);
 
     return res.json({
@@ -172,6 +203,9 @@ router.get('/progress', requireAuth, async (req, res) => {
 
 /**
  * POST /api/me/refresh-progress
+ *
+ * Rebuilds/cleans the user's progress array from existing progress & quiz results,
+ * deduplicates by courseId, sanitizes hours, and writes back to DB.
  */
 router.post('/refresh-progress', requireAuth, async (req, res) => {
   try {
@@ -184,54 +218,69 @@ router.post('/refresh-progress', requireAuth, async (req, res) => {
     const cleanMap = new Map();
 
     existingProgress.forEach(p => {
-        const key = toNormalizedKey(p.courseId);
-        if(!key) return;
+      const key = toNormalizedKey(p.courseId);
+      if (!key) return;
 
-        const existing = cleanMap.get(key) || { 
-            courseId: key, percent: 0, hoursLearned: 0, completedLessons: [], quizPassed: false 
-        };
+      const existing = cleanMap.get(key) || {
+        courseId: key,
+        percent: 0,
+        hoursLearned: 0,
+        completedLessons: [],
+        quizPassed: false
+      };
 
-        // Take max percent
-        existing.percent = Math.max(existing.percent, Number(p.percent || 0));
-        
-        // FIX: If hours > MAX, reset to 0. Else take max.
-        let h = Number(p.hoursLearned || 0);
-        if(h > MAX_HOURS_PER_COURSE) h = 0;
-        existing.hoursLearned = Math.max(existing.hoursLearned, h);
+      // Take max percent
+      existing.percent = Math.max(existing.percent, Number(p.percent || 0));
 
-        if(p.quizPassed) existing.quizPassed = true;
-        if(p.completedAt) existing.completedAt = p.completedAt;
-        if(p.lastSeenAt) existing.lastSeenAt = p.lastSeenAt;
+      // Sanitize hours & clamp to MAX
+      let h = Number(p.hoursLearned || 0);
+      if (!isFinite(h) || h < 0) h = 0;
+      if (h > MAX_HOURS_PER_COURSE) h = MAX_HOURS_PER_COURSE;
+      existing.hoursLearned = Math.max(existing.hoursLearned, h);
 
-        // Merge lessons
-        const oldL = (p.completedLessons || []).map(String);
-        const curL = (existing.completedLessons || []).map(String);
-        existing.completedLessons = Array.from(new Set([...oldL, ...curL]));
+      if (p.quizPassed) existing.quizPassed = true;
+      if (p.completedAt) existing.completedAt = p.completedAt;
+      if (p.lastSeenAt) existing.lastSeenAt = p.lastSeenAt;
 
-        cleanMap.set(key, existing);
+      // Merge lessons
+      const oldL = (p.completedLessons || []).map(String);
+      const curL = (existing.completedLessons || []).map(String);
+      existing.completedLessons = Array.from(new Set([...oldL, ...curL]));
+
+      cleanMap.set(key, existing);
     });
 
     // 2. Incorporate Quiz Results (do NOT force percent to 100)
     const results = await QuizResult.find({ userId }).lean();
     results.forEach(r => {
-        const key = toNormalizedKey(r.courseId);
-        if(!key) return;
-        const entry = cleanMap.get(key) || { courseId: key, percent: 0, hoursLearned: 0, completedLessons: [], quizPassed: false };
-        if (r.passed) {
-          entry.quizPassed = true;
-          entry.percent = Math.max(entry.percent, Number(r.percentage || 0));
-          if (!entry.lastQuizAt) entry.lastQuizAt = r.takenAt || new Date();
-        } else {
-          entry.percent = Math.max(entry.percent, Number(r.percentage || 0));
-        }
-        cleanMap.set(key, entry);
+      const key = toNormalizedKey(r.courseId);
+      if (!key) return;
+      const entry = cleanMap.get(key) || {
+        courseId: key,
+        percent: 0,
+        hoursLearned: 0,
+        completedLessons: [],
+        quizPassed: false
+      };
+      if (r.passed) {
+        entry.quizPassed = true;
+        entry.percent = Math.max(entry.percent, Number(r.percentage || 0));
+        if (!entry.lastQuizAt) entry.lastQuizAt = r.takenAt || new Date();
+      } else {
+        entry.percent = Math.max(entry.percent, Number(r.percentage || 0));
+      }
+      cleanMap.set(key, entry);
     });
 
     const newProgressList = Array.from(cleanMap.values());
 
     // Update DB
-    const updated = await User.findByIdAndUpdate(userId, { $set: { progress: newProgressList } }, { new: true });
-    
+    const updated = await User.findByIdAndUpdate(
+      userId,
+      { $set: { progress: newProgressList } },
+      { new: true }
+    );
+
     // Recalculate summary from CLEAN list (uses percent >=100 && quizPassed)
     const { completedCount, hoursLearned } = computeSummaryFromProgress(updated.progress);
 

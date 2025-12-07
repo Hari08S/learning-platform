@@ -47,7 +47,7 @@ function computeFromProgress(progressList = []) {
 
     let h = Number(p.hoursLearned || 0);
     if (!isFinite(h) || h < 0) h = 0;
-    if (h > 50) h = 0;
+    // ❌ removed: if (h > 50) h = 0;
     hours += h;
   });
 
@@ -205,7 +205,7 @@ const Dashboard = () => {
 
         let h = Number(p.hoursLearned || 0);
         if (!isFinite(h) || h < 0) h = 0;
-        if (h > 50) h = 0;
+        // ❌ removed: if (h > 50) h = 0;
         visibleHours += h;
       });
 
