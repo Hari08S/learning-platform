@@ -1,3 +1,4 @@
+// src/components/CertificatesPage.jsx
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import '../styles/courses.css';
@@ -83,8 +84,9 @@ export default function CertificatesPage() {
         });
 
         // Build an initial list of items (some purchases may already include course object)
+        // **Change:** filter out purchases that have status === 'cancelled' so cancelled courses do not show on Certificates page
         const initial = purchased
-          .filter(pc => pc && pc.courseId) // ignore invalid
+          .filter(pc => pc && pc.courseId && ((pc.status || 'active') !== 'cancelled')) // <-- filter cancelled here
           .map(pc => {
             const cid = normId(pc.courseId);
             // course metadata might be embedded in pc.courseId
@@ -294,6 +296,8 @@ export default function CertificatesPage() {
     </div>
   );
 }
+
+// the following helper functions are unchanged from your original file
 export async function generateAndDownloadCertificate({ course, userName, certId, issuedOn = new Date(), filename }) {
   const dateStr = (issuedOn instanceof Date) ? issuedOn.toLocaleDateString() : issuedOn;
   const title = course.title;

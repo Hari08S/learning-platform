@@ -202,6 +202,109 @@ router.get('/progress', requireAuth, async (req, res) => {
 });
 
 /**
+ * POST /api/me/heartbeat
+ *
+ * Body: { courseId: "<id>", seconds: <number> }
+ *
+ * Records active learning time for a course for the current user.
+ * - seconds is the number of seconds of activity (integer)
+ * - endpoint updates user's progress entry (hoursLearned) and lastSeenAt
+ * - clamps per-course hours to MAX_HOURS_PER_COURSE
+ * - updates user's lastActiveAt and streakDays
+ */
+router.post('/heartbeat', requireAuth, async (req, res) => {
+  try {
+    const userId = req.userId;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    const { courseId, seconds } = req.body || {};
+    const sec = Math.max(0, Math.floor(Number(seconds || 0)));
+    if (!courseId || sec <= 0) return res.status(400).json({ message: 'Invalid payload' });
+
+    const cidKey = toNormalizedKey(courseId);
+    if (!cidKey) return res.status(400).json({ message: 'Invalid courseId' });
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // Ensure progress array exists
+    if (!Array.isArray(user.progress)) user.progress = [];
+
+    // Try to find progress entry for this course
+    let entry = user.progress.find(p => {
+      try {
+        return toNormalizedKey(p.courseId) === cidKey;
+      } catch (e) {
+        return false;
+      }
+    });
+
+    if (!entry) {
+      // create a new progress entry (percent=0)
+      entry = {
+        courseId: cidKey,
+        percent: 0,
+        hoursLearned: 0,
+        completedLessons: [],
+        quizPassed: false,
+        lastSeenAt: null,
+        completedAt: null
+      };
+      user.progress.push(entry);
+    }
+
+    // add seconds -> hours
+    const addHours = sec / 3600;
+    entry.hoursLearned = Number(entry.hoursLearned || 0) + addHours;
+
+    // clamp
+    if (!isFinite(entry.hoursLearned) || entry.hoursLearned < 0) entry.hoursLearned = 0;
+    if (entry.hoursLearned > MAX_HOURS_PER_COURSE) entry.hoursLearned = MAX_HOURS_PER_COURSE;
+
+    entry.lastSeenAt = new Date();
+
+    // Persist user.progress and update lastActiveAt / streakDays
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // 00:00 today
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    // compute/initialize lastActiveAt/streakDays
+    const prevActive = user.lastActiveAt ? new Date(user.lastActiveAt) : null;
+    if (!prevActive) {
+      user.streakDays = 1;
+    } else {
+      const prevDateOnly = new Date(prevActive.getFullYear(), prevActive.getMonth(), prevActive.getDate());
+      if (prevDateOnly.getTime() === today.getTime()) {
+        // same day -> nothing to change
+      } else if (prevDateOnly.getTime() === yesterday.getTime()) {
+        user.streakDays = (Number(user.streakDays || 0) || 0) + 1;
+      } else {
+        user.streakDays = 1;
+      }
+    }
+    user.lastActiveAt = now;
+
+    await user.save();
+
+    // return updated entry and summary
+    return res.json({
+      progressEntry: {
+        courseId: entry.courseId,
+        percent: entry.percent,
+        hoursLearned: entry.hoursLearned,
+        lastSeenAt: entry.lastSeenAt,
+        quizPassed: !!entry.quizPassed
+      },
+      streakDays: Number(user.streakDays || 0)
+    });
+  } catch (err) {
+    console.error('POST /api/me/heartbeat error:', err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+/**
  * POST /api/me/refresh-progress
  *
  * Rebuilds/cleans the user's progress array from existing progress & quiz results,

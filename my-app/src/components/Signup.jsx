@@ -52,7 +52,7 @@ const Signup = () => {
         return;
       }
 
-      // Success → redirect to login (user asked earlier to go to login after creating account)
+      // Success → redirect to login
       nav("/login");
     } catch (error) {
       console.error(error);
@@ -96,14 +96,19 @@ const Signup = () => {
               <div className="password-wrapper">
                 <input
                   type={showPw ? "text" : "password"}
-                  className="input"
+                  className="input input-with-eye"
                   value={pw}
                   onChange={(e) => setPw(e.target.value)}
                   placeholder="Create password"
                 />
-                <span className="pw-eye" onClick={() => setShowPw(!showPw)}>
+                <button
+                  type="button"
+                  className="pw-eye"
+                  aria-label={showPw ? "Hide password" : "Show password"}
+                  onClick={() => setShowPw(!showPw)}
+                >
                   {showPw ? "👁️" : "👁️‍🗨️"}
-                </span>
+                </button>
               </div>
             </label>
 
@@ -112,14 +117,19 @@ const Signup = () => {
               <div className="password-wrapper">
                 <input
                   type={showCpw ? "text" : "password"}
-                  className="input"
+                  className="input input-with-eye"
                   value={cpw}
                   onChange={(e) => setCpw(e.target.value)}
                   placeholder="Confirm password"
                 />
-                <span className="pw-eye" onClick={() => setShowCpw(!showCpw)}>
+                <button
+                  type="button"
+                  className="pw-eye"
+                  aria-label={showCpw ? "Hide confirm password" : "Show confirm password"}
+                  onClick={() => setShowCpw(!showCpw)}
+                >
                   {showCpw ? "👁️" : "👁️‍🗨️"}
-                </span>
+                </button>
               </div>
             </label>
 

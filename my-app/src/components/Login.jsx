@@ -96,8 +96,21 @@ const Login = ({ setLoggedIn }) => {
                 <label className="field">
                   <span className="field-label">Password</span>
                   <div className="password-wrapper">
-                    <input type={showPw ? "text" : "password"} placeholder="Your password" className="input" value={pw} onChange={(e) => setPw(e.target.value)} />
-                    <span className="pw-eye" onClick={() => setShowPw(!showPw)}>{showPw ? "👁️" : "👁️‍🗨️"}</span>
+                    <input
+                      type={showPw ? "text" : "password"}
+                      placeholder="Your password"
+                      className="input input-with-eye"
+                      value={pw}
+                      onChange={(e) => setPw(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className="pw-eye"
+                      aria-label={showPw ? "Hide password" : "Show password"}
+                      onClick={() => setShowPw(!showPw)}
+                    >
+                      {showPw ? "👁️" : "👁️‍🗨️"}
+                    </button>
                   </div>
                 </label>
 

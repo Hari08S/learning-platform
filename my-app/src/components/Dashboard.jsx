@@ -87,6 +87,43 @@ const Dashboard = () => {
     return `${dec.toFixed(1)} h`;
   };
 
+  // Set weekly goal flow: tries server endpoint first, falls back to localStorage
+  const handleSetWeeklyGoal = async () => {
+    try {
+      const input = prompt('Set weekly goal in minutes (e.g. 150). Leave empty to cancel.');
+      if (!input) return;
+      const mins = Math.max(0, Math.floor(Number(input)));
+      if (!isFinite(mins) || mins <= 0) return alert('Please enter a valid number of minutes.');
+
+      const token = localStorage.getItem('token');
+      // Try a server endpoint if available
+      if (token) {
+        try {
+          const r = await fetch(`${API_BASE}/api/me/goal`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ weeklyGoalMinutes: mins })
+          });
+          if (r.ok) {
+            alert('Weekly goal saved.');
+            window.dispatchEvent(new Event('user.updated'));
+            return;
+          }
+          // if server doesn't support it, we'll fall back to local storage
+        } catch (e) {
+          // ignore and fallback to localStorage
+        }
+      }
+
+      localStorage.setItem('weeklyGoalMinutes', String(mins));
+      alert('Weekly goal saved locally.');
+      window.dispatchEvent(new Event('user.updated'));
+    } catch (err) {
+      console.error('Set weekly goal failed', err);
+      alert('Could not save weekly goal.');
+    }
+  };
+
   const refreshAndLoad = async (token) => {
     setLoadingUser(true);
     setLoadingPurchases(true);
@@ -217,21 +254,96 @@ const Dashboard = () => {
         setHoursLearned(visibleHours);
       }
 
+      // determine sensible lastCourseId:
+      let lastId = null;
+      try {
+        const stored = localStorage.getItem('currentCourseId');
+        if (stored) lastId = String(stored);
+      } catch (e) { /* ignore */ }
+
+      if (!lastId) {
+        // choose the most recent lastSeenAt among visible progress entries
+        let best = null;
+        progressList.forEach(p => {
+          if (!p || !p.courseId) return;
+          const pid = normId(p.courseId);
+          if (!visibleSet.has(pid)) return;
+          const ts = p.lastSeenAt ? new Date(p.lastSeenAt).getTime() : 0;
+          if (!best || ts > best.ts) best = { pid, ts };
+        });
+        if (best) lastId = best.pid;
+      }
+      setLastCourseId(lastId || null);
+
       // load timeline/badges (best-effort)
       try {
         const [actRes, badgesRes] = await Promise.all([
           fetch(`${API_BASE}/api/me/activity`, { headers: { Authorization: `Bearer ${token}` } }),
           fetch(`${API_BASE}/api/me/badges`, { headers: { Authorization: `Bearer ${token}` } })
         ]);
+
         if (actRes.ok) {
           const ajs = await actRes.json();
           setTimeline(Array.isArray(ajs.events) ? ajs.events.slice(0, 5) : []);
+        } else {
+          // fallback: build a small timeline from recent progress
+          const fallbackEvents = [];
+          // streak event
+          if (Number(js.streakDays || 0) > 0) {
+            fallbackEvents.push({
+              id: `streak-${Date.now()}`,
+              type: 'streak',
+              title: `Learning streak: ${Number(js.streakDays || 0)} day${Number(js.streakDays || 0) === 1 ? '' : 's'}`,
+              time: new Date().toISOString(),
+              meta: {}
+            });
+          }
+          // progress events
+          const sortedProgress = (progressList || [])
+            .filter(p => p && p.courseId && visibleSet.has(normId(p.courseId)))
+            .sort((a, b) => {
+              const ta = a.lastSeenAt ? new Date(a.lastSeenAt).getTime() : 0;
+              const tb = b.lastSeenAt ? new Date(b.lastSeenAt).getTime() : 0;
+              return tb - ta;
+            })
+            .slice(0, 4);
+
+          sortedProgress.forEach(p => {
+            fallbackEvents.push({
+              id: `prog-${normId(p.courseId)}-${p.lastSeenAt || ''}`,
+              type: 'viewed',
+              title: `Progress: ${p.courseTitle || p.title || 'Course'}`,
+              time: p.lastSeenAt || new Date().toISOString(),
+              courseId: normId(p.courseId),
+              meta: { courseTitle: p.courseTitle || p.title || '', percent: p.percent || 0 }
+            });
+          });
+
+          setTimeline(fallbackEvents.slice(0, 5));
         }
+
         if (badgesRes.ok) {
           const bjs = await badgesRes.json();
           setBadges(Array.isArray(bjs.badges) ? bjs.badges : []);
+        } else {
+          // attach badges from serverProgress if present
+          setBadges(Array.isArray(js.badges) ? js.badges : []);
         }
-      } catch (e) { /* ignore */ }
+      } catch (e) {
+        // fallback timeline/badges from progress/purchasedCourses
+        const fallbackEvents = [];
+        if (Number(js.streakDays || 0) > 0) {
+          fallbackEvents.push({
+            id: `streak-${Date.now()}`,
+            type: 'streak',
+            title: `Learning streak: ${Number(js.streakDays || 0)} day${Number(js.streakDays || 0) === 1 ? '' : 's'}`,
+            time: new Date().toISOString(),
+            meta: {}
+          });
+        }
+        setTimeline(fallbackEvents);
+        setBadges(Array.isArray(js.badges) ? js.badges : []);
+      }
 
     } catch (err) {
       console.error('Dashboard load error', err);
@@ -343,7 +455,11 @@ const Dashboard = () => {
         )}
       </div>
       <div style={{ marginTop: 32 }}>
-        <QuickActions lastCourseId={lastCourseId} onResume={resumeLast} onDownloadCertificate={downloadLastCert} />
+        <QuickActions
+          lastCourseId={lastCourseId}
+          onResume={resumeLast}
+          onSetGoal={handleSetWeeklyGoal}
+        />
         <AchievementsRow badges={badges} />
         <LearningTimeline events={timeline} />
       </div>

@@ -22,13 +22,13 @@ router.post('/signup', async (req, res) => {
     const saltRounds = 10;
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
-    const user = new User({ name, email: email.toLowerCase(), passwordHash });
+    const user = new User({ name: String(name).trim(), email: email.toLowerCase(), passwordHash });
     await user.save();
 
     const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: TOKEN_EXPIRES });
 
     res.json({
-      user: { id: user._id, name: user.name, email: user.email },
+      user: { id: String(user._id), name: user.name, email: user.email },
       token
     });
   } catch (err) {
@@ -52,7 +52,7 @@ router.post('/login', async (req, res) => {
     const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: TOKEN_EXPIRES });
 
     res.json({
-      user: { id: user._id, name: user.name, email: user.email },
+      user: { id: String(user._id), name: user.name, email: user.email },
       token
     });
   } catch (err) {
@@ -66,10 +66,50 @@ router.get('/me', requireAuth, async (req, res) => {
   try {
     const user = await User.findById(req.userId).lean();
     if (!user) return res.status(404).json({ message: 'User not found' });
-    res.json({ user: { id: user._id, name: user.name, email: user.email } });
+    res.json({ user: { id: String(user._id), name: user.name, email: user.email } });
   } catch (err) {
     console.error('auth.me', err);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+/**
+ * PATCH /api/auth/me
+ * Body: { name: "New Name" }
+ *
+ * Updates the current user's name. Returns { user: { id, name, email } } on success.
+ */
+router.patch('/me', requireAuth, async (req, res) => {
+  try {
+    const userId = req.userId;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    const { name } = req.body || {};
+    if (!name || String(name).trim().length < 2) {
+      return res.status(400).json({ message: 'Please provide a valid name (at least 2 characters).' });
+    }
+
+    const cleanName = String(name).trim();
+
+    const updated = await User.findByIdAndUpdate(
+      userId,
+      { $set: { name: cleanName } },
+      { new: true, select: '_id name email' }
+    ).lean();
+
+    if (!updated) return res.status(404).json({ message: 'User not found' });
+
+    // Return id as string for frontend consistency
+    return res.json({
+      user: {
+        id: String(updated._id),
+        name: updated.name,
+        email: updated.email
+      }
+    });
+  } catch (err) {
+    console.error('PATCH /api/auth/me error:', err);
+    return res.status(500).json({ message: 'Server error while updating profile' });
   }
 });
 

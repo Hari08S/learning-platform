@@ -169,3 +169,46 @@
     .blobs { display: none; } /* hide heavy visuals on small screen */
   }
   
+  /* Put the eye inside the input container */
+.password-wrapper {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+/* Add extra right padding so input text won't collide with the eye */
+.input-with-eye {
+  padding-right: 48px; /* adjust if your eye/buttons are wider */
+}
+
+/* Eye button sits inside the input, right aligned */
+.pw-eye {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 6px;
+  border-radius: 6px;
+  /* for keyboard focus */
+  outline: none;
+}
+
+.pw-eye:focus {
+  box-shadow: 0 0 0 3px rgba(124,58,237,0.16);
+}
+
+/* Optional: slightly dim the eye so it doesn't steal attention */
+.pw-eye {
+  color: #6b7280;
+}
+
+/* If you use .password-wrapper .input (some projects separate input styling), ensure it stretches */
+.password-wrapper .input {
+  width: 100%;
+  box-sizing: border-box;
+}
