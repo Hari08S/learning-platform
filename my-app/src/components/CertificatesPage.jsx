@@ -36,6 +36,7 @@ export default function CertificatesPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
   const [items, setItems] = useState([]); // { purchase, courseMeta, progress }
+  const [internshipItems, setInternshipItems] = useState([]); // Array of { application, internship }
 
   useEffect(() => {
     let mounted = true;
@@ -92,11 +93,11 @@ export default function CertificatesPage() {
             // course metadata might be embedded in pc.courseId
             const courseMeta = (typeof pc.courseId === 'object' && (pc.courseId.title || pc.courseId._id))
               ? {
-                  _id: normId(pc.courseId),
-                  title: pc.courseId.title || pc.title || 'Untitled',
-                  img: pc.courseId.img || pc.img || '/logo.png',
-                  author: pc.courseId.author || pc.author || 'Author'
-                }
+                _id: normId(pc.courseId),
+                title: pc.courseId.title || pc.title || 'Untitled',
+                img: pc.courseId.img || pc.img || '/logo.png',
+                author: pc.courseId.author || pc.author || 'Author'
+              }
               : null;
 
             return {
@@ -164,8 +165,24 @@ export default function CertificatesPage() {
 
         if (mounted) {
           setItems(cleanedItems);
-          setLoading(false);
+          // setLoading(false);
         }
+
+        // 2) Fetch internship certificates
+        try {
+          const intRes = await fetch(`${API_BASE}/api/user/internships/my`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (intRes.ok) {
+            const intData = await intRes.json();
+            const completedInternships = (intData.applications || []).filter(app => app.status === 'completed');
+            if (mounted) setInternshipItems(completedInternships);
+          }
+        } catch (errInt) {
+          console.error('Failed fetching internship certs:', errInt);
+        }
+
+        if (mounted) setLoading(false);
       } catch (e) {
         console.error('Certificates load error', e);
         if (mounted) {
@@ -213,7 +230,7 @@ export default function CertificatesPage() {
   return (
     <div className="container" style={{ padding: '28px 24px 80px' }}>
       <h1 style={{ marginBottom: 8 }}>Certificates</h1>
-      <p style={{ color: '#6b7280', marginBottom: 20 }}>Certificates for your purchased courses</p>
+      <p style={{ color: '#6b7280', marginBottom: 20 }}>Certificates for your purchased courses and completed internships.</p>
 
       {err && <div style={{ color: 'red', marginBottom: 12 }}>{err}</div>}
 
@@ -293,7 +310,57 @@ export default function CertificatesPage() {
           })}
         </div>
       )}
-    </div>
+
+      {/* INTERNSHIP CERTIFICATES SECTION */}
+      {internshipItems.length > 0 && (
+        <div style={{ marginTop: '48px' }}>
+          <h2 style={{ marginBottom: 12 }}>Internship Certificates</h2>
+          <div style={{ display: 'grid', gap: 18 }}>
+            {internshipItems.map((app) => {
+              const i = app.internshipId;
+              if (!i) return null;
+              const thumb = i.thumbnail || '/logo.png';
+
+              return (
+                <div key={app._id} style={{ background: '#fff', borderRadius: 12, padding: 18, boxShadow: '0 8px 30px rgba(2,6,23,0.04)', display: 'flex', alignItems: 'center', gap: 16 }}>
+                  <div style={{ width: 120, height: 80, flex: '0 0 120px', borderRadius: 8, overflow: 'hidden', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <img src={thumb} alt={i.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </div>
+
+                  <div style={{ flex: 1 }}>
+                    <h3 style={{ margin: '4px 0 6px' }}>{i.title}</h3>
+                    <div style={{ color: '#6b7280', fontSize: 13 }}>
+                      Company: <strong>{i.company || 'Upwise Hosted'}</strong> &nbsp;•&nbsp; Completed: {fmtDate(app.completedAt)}
+                    </div>
+
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ color: '#059669', fontWeight: 700 }}>100%</div>
+                        <div style={{ color: '#94a3b8', fontSize: 13 }}>Completed</div>
+                      </div>
+
+                      <div style={{ height: 8, background: '#eef2f7', borderRadius: 6, overflow: 'hidden', marginTop: 8 }}>
+                        <div style={{ width: '100%', height: '100%', background: '#10b981' }} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end' }}>
+                    <button
+                      className="btn"
+                      onClick={() => handleDownloadCertificate({ title: i.title + " Internship" }, app._id)}
+                      style={{ minWidth: 160, background: '#059669', color: '#fff' }}
+                    >
+                      Download Certificate
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div >
   );
 }
 
@@ -305,43 +372,37 @@ export async function generateAndDownloadCertificate({ course, userName, certId,
   const user = userName || "Learner";
 
   const svg = `
-  <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1130" viewBox="0 0 1600 1130">
-    <defs>
-      <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
-        <stop offset="0" stop-color="#065F46"/>
-        <stop offset="1" stop-color="#10B981"/>
-      </linearGradient>
-    </defs>
+      <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1130" viewBox="0 0 1600 1130">
+        <defs>
+          <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0" stop-color="#065F46" />
+            <stop offset="1" stop-color="#10B981" />
+          </linearGradient>
+        </defs>
 
-    <rect width="100%" height="100%" fill="#fff" rx="20" />
-    <rect x="40" y="40" width="1520" height="1050" rx="18" fill="url(#g)" opacity="0.06" />
+        <rect width="100%" height="100%" fill="#fff" rx="20" />
+        <rect x="40" y="40" width="1520" height="1050" rx="18" fill="url(#g)" opacity="0.06" />
 
-    <g transform="translate(120,140)">
-      <text x="0" y="0" font-size="40" font-family="Arial" fill="#065F46" font-weight="800">${issuer} Certificate</text>
+        <g transform="translate(120,140)">
+          <text x="0" y="0" font-size="40" font-family="Arial" fill="#065F46" font-weight="800">${issuer} Certificate</text>
 
-      <text x="0" y="120" font-size="26" font-family="Arial" fill="#0f172a">This certifies that</text>
+          <text x="0" y="120" font-size="26" font-family="Arial" fill="#0f172a">This certifies that</text>
 
-      <text x="0" y="210" font-size="56" font-family="Arial" fill="#0f172a" font-weight="800">${escapeXml(user)}</text>
+          <text x="0" y="210" font-size="56" font-family="Arial" fill="#0f172a" font-weight="800">${escapeXml(user)}</text>
 
-      <text x="0" y="300" font-size="26" font-family="Arial" fill="#0f172a">has successfully completed the course</text>
+          <text x="0" y="300" font-size="26" font-family="Arial" fill="#0f172a">has successfully completed the course</text>
 
-      <foreignObject x="0" y="330" width="1360" height="160">
-        <div xmlns="http://www.w3.org/1999/xhtml">
-          <p style="font-family:Arial, Helvetica, sans-serif; font-size:36px; font-weight:800; color:#064e3b; margin:0;">
-            ${escapeXml(title)}
-          </p>
-        </div>
-      </foreignObject>
+          <text x="0" y="380" font-size="36" font-family="Arial" font-weight="800" fill="#064e3b">${escapeXml(title)}</text>
 
-      <text x="0" y="540" font-size="18" font-family="Arial" fill="#475569">Issued on: ${escapeXml(dateStr)}</text>
-      <text x="0" y="578" font-size="18" font-family="Arial" fill="#475569">Certificate ID: ${escapeXml(certId)}</text>
+          <text x="0" y="540" font-size="18" font-family="Arial" fill="#475569">Issued on: ${escapeXml(dateStr)}</text>
+          <text x="0" y="578" font-size="18" font-family="Arial" fill="#475569">Certificate ID: ${escapeXml(certId)}</text>
 
-      <g transform="translate(1060, 420)">
-        <rect x="0" y="0" width="240" height="110" rx="8" fill="#fff" opacity="0.95" />
-        <text x="120" y="58" text-anchor="middle" font-family="Arial" font-size="20" font-weight="700" fill="#065F46">Verified</text>
-      </g>
-    </g>
-  </svg>`;
+          <g transform="translate(1060, 420)">
+            <rect x="0" y="0" width="240" height="110" rx="8" fill="#fff" opacity="0.95" />
+            <text x="120" y="58" text-anchor="middle" font-family="Arial" font-size="20" font-weight="700" fill="#065F46">Verified</text>
+          </g>
+        </g>
+      </svg>`;
 
   const svgBlob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
   const url = URL.createObjectURL(svgBlob);

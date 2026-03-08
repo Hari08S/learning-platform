@@ -1,12 +1,14 @@
-// src/components/Login.jsx
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import "../styles/login.css";
+import useStore from '../store';
+import SEO from './SEO.jsx';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
 
 const Login = ({ setLoggedIn }) => {
   const nav = useNavigate();
+  const { login } = useStore();
 
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
@@ -37,24 +39,23 @@ const Login = ({ setLoggedIn }) => {
       }
 
       const body = await res.json();
-      // store token + user
-      if (body.token) {
-        localStorage.setItem('token', body.token);
+
+      // Use Zustand store for login
+      if (body.token && body.user) {
+        login(body.user, body.token);
       }
-      if (body.user) {
-        localStorage.setItem('user', JSON.stringify(body.user));
-      }
-      localStorage.setItem('isLoggedIn', 'true');
 
       setLoggedIn(true);
       setSuccess(true);
 
-      // notify any listeners
-      window.dispatchEvent(new Event('user.updated'));
-
       setTimeout(() => {
-        nav('/dashboard');
+        if (body.user?.role === "admin") {
+          nav('/admin/dashboard');
+        } else {
+          nav('/dashboard');
+        }
       }, 900);
+
     } catch (err) {
       setErr(err.message || 'Login failed');
     } finally {
@@ -64,6 +65,7 @@ const Login = ({ setLoggedIn }) => {
 
   return (
     <main className="login-page">
+      <SEO title="Login" description="Sign in to your UPWISE account to continue learning." />
       <div className="blobs">
         <div className="blob b1" />
         <div className="blob b2" />
@@ -84,13 +86,23 @@ const Login = ({ setLoggedIn }) => {
         ) : (
           <>
             <div className="panel-left">
-              <h2 className="lp-title">Welcome back to UPWISE</h2>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
+                <img src="/logo.png" alt="UPWISE" style={{ width: '40px', height: '40px', borderRadius: '50%', marginRight: '12px' }} />
+                <span style={{ fontSize: '1.5rem', fontWeight: '800', color: '#064e3b' }}>UPWISE</span>
+              </div>
+              <h2 className="lp-title">Welcome back</h2>
               <p className="lp-desc">Sign in to continue your learning journey.</p>
 
               <form className="login-form" onSubmit={handleSubmit} noValidate>
                 <label className="field">
                   <span className="field-label">Email</span>
-                  <input type="email" placeholder="you@example.com" className="input" value={email} onChange={(e) => setEmail(e.target.value)} />
+                  <input
+                    type="email"
+                    placeholder="you@example.com"
+                    className="input"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
                 </label>
 
                 <label className="field">
@@ -117,7 +129,9 @@ const Login = ({ setLoggedIn }) => {
                 {err && <div className="form-error">{err}</div>}
 
                 <div className="forgot-link">
-                  <Link to="/forgot-password" className="forgot-text">Forgot Password?</Link>
+                  <Link to="/forgot-password" className="forgot-text">
+                    Forgot Password?
+                  </Link>
                 </div>
 
                 <button type="submit" className="btn login-btn" disabled={loading}>
@@ -125,17 +139,24 @@ const Login = ({ setLoggedIn }) => {
                 </button>
 
                 <div className="small-note">
-                  New here? <Link to="/signup" style={{ color: "#065F46", fontWeight: 700 }}>Create an account</Link>
+                  New here?{" "}
+                  <Link to="/signup" style={{ color: "#065F46", fontWeight: 700 }}>
+                    Create an account
+                  </Link>
                 </div>
               </form>
             </div>
 
             <aside className="panel-right">
               <h3 className="right-title">Why UPWISE?</h3>
+              <p style={{ color: "var(--muted)", marginBottom: "16px", fontSize: "0.95rem", lineHeight: "1.5" }}>
+                Join 50,000+ professionals advancing their careers through premium courses and verified internships.
+              </p>
               <ul className="right-features">
-                <li>🎓 Expert-led courses</li>
-                <li>⏱ Learn at your pace</li>
-                <li>🚀 Boost your career</li>
+                <li>🎓 Expert-led video courses</li>
+                <li>💼 Real-world internships</li>
+                <li>🏆 Verifiable certificates</li>
+                <li>🚀 Boost your career growth</li>
               </ul>
             </aside>
           </>

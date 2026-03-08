@@ -1,0 +1,10 @@
+﻿
+> upwise-backend@1.0.0 seed
+> node scripts/seedCourses.js
+
+Connecting to MongoDB at mongodb://localhost:27017/upwise
+MongoDB connected: mongodb://localhost:27017/upwise
+Connected to Mongo
+Loaded courses data from E:\learningplatform\my-app\src\data\coursesData.js
+Cleared existing courses.
+Inserted 6 courses. Example id: 692c4008b5bc73c629dab289

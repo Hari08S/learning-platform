@@ -24,22 +24,13 @@ export default function QuickActions({ lastCourseId, onResume, onSetGoal }) {
         className="btn"
         style={{ background: '#FDE68A', color: '#92400E', fontWeight: 800 }}
         onClick={() => {
-          if (!onSetGoal) {
-            // fallback simple prompt behaviour if parent didn't pass handler
-            const mins = Number(prompt('Set weekly goal in minutes (e.g. 150)'));
-            if (!isFinite(mins) || mins <= 0) return alert('Invalid value');
-            localStorage.setItem('weeklyGoalMinutes', String(mins));
-            alert('Weekly goal saved locally.');
-            window.dispatchEvent(new Event('user.updated'));
-            return;
-          }
-          onSetGoal();
+          if (onSetGoal) onSetGoal();
         }}
       >
         Set Weekly Goal
       </button>
 
-      <div style={{ marginLeft: 'auto', color: '#64748B', fontSize: 13 }}>
+      <div style={{ color: '#64748B', fontSize: 13 }}>
         Tip: Set a weekly goal and we’ll remind you.
       </div>
     </div>

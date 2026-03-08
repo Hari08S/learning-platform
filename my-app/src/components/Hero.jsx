@@ -1,12 +1,24 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const Hero = () => {
+const Hero = ({ loggedIn }) => {
   const navigate = useNavigate();
 
   const handleStart = () => {
-    // navigate to login page
-    navigate('/login');
+    try {
+      const user = JSON.parse(localStorage.getItem('user') || 'null');
+      if (loggedIn && user) {
+        if (user.role === 'admin') {
+          navigate('/admin/dashboard');
+        } else {
+          navigate('/courses');
+        }
+      } else {
+        navigate('/login');
+      }
+    } catch (e) {
+      navigate('/login');
+    }
   };
 
   return (
@@ -57,7 +69,7 @@ const Hero = () => {
             </defs>
 
             <rect width="480" height="360" rx="16" fill="url(#grad1)" />
-            <path d="M 80 280 C 160 120, 320 120, 400 280" stroke="#34D399" strokeWidth="6" fill="none" strokeLinecap="round" opacity="0.5"/>
+            <path d="M 80 280 C 160 120, 320 120, 400 280" stroke="#34D399" strokeWidth="6" fill="none" strokeLinecap="round" opacity="0.5" />
             <path d="M 120 280 Q 240 180, 360 280" stroke="white" strokeWidth="8" fill="none" strokeLinecap="round" />
             <circle cx="120" cy="280" r="12" fill="#FBBF24" />
             <circle cx="240" cy="219" r="12" fill="#FBBF24" />

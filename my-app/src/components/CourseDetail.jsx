@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import '../styles/courses.css';
+import useActivity from '../hooks/useActivity';
+import useNotes from '../hooks/useNotes';
+import NotePanel from './NotePanel';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
 
@@ -20,6 +23,13 @@ export default function CourseDetail() {
   // NEW: quiz state (optional server-provided)
   const [quiz, setQuiz] = useState(null);
   const [quizAvailableOnServer, setQuizAvailableOnServer] = useState(false);
+  const [activeNoteIndex, setActiveNoteIndex] = useState(null);
+
+  const { logActivity } = useActivity();
+  const { getNotes } = useNotes();
+  const [courseNotes, setCourseNotes] = useState([]);
+  const userObj = JSON.parse(localStorage.getItem('user') || '{}');
+  const userId = userObj.id || userObj._id;
 
   // helper resolve id
   const courseIdResolved = () => course && (course._id || course.id) ? String(course._id || course.id) : String(id);
@@ -58,7 +68,7 @@ export default function CourseDetail() {
         if (cur && String(cur) === String(id || (course && (course._id || course.id)))) {
           localStorage.removeItem('currentCourseId');
         }
-      } catch (e) {}
+      } catch (e) { }
     };
   }, [id, course]);
 
@@ -83,7 +93,7 @@ export default function CourseDetail() {
         return;
       }
       try {
-        const res = await fetch(`${API_BASE}/api/me/progress`, { headers: { Authorization: `Bearer ${token}` }});
+        const res = await fetch(`${API_BASE}/api/me/progress`, { headers: { Authorization: `Bearer ${token}` } });
         if (!res.ok) {
           if (mounted) { setPurchased(false); setUserProgressForCourse(null); }
           return;
@@ -171,6 +181,17 @@ export default function CourseDetail() {
     return () => { mounted = false; };
   }, [id, course]);
 
+  // NEW: fetch notes
+  useEffect(() => {
+    let mounted = true;
+    if (userId) {
+      getNotes(userId).then(list => {
+        if (mounted) setCourseNotes(list || []);
+      });
+    }
+    return () => { mounted = false; };
+  }, [userId, getNotes, activeNoteIndex]); // re-fetch when panel closes
+
   if (loading) return <div className="container" style={{ padding: 48 }}>Loading...</div>;
   if (!course) return (
     <div className="container" style={{ padding: 48 }}>
@@ -238,7 +259,7 @@ export default function CourseDetail() {
     setButtonState('processing');
     try {
       const courseId = course._id || id;
-      const res = await fetch(`${API_BASE}/api/purchases/${courseId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` }});
+      const res = await fetch(`${API_BASE}/api/purchases/${courseId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) {
         const ct = res.headers.get('content-type') || '';
         if (ct.includes('application/json')) {
@@ -264,7 +285,8 @@ export default function CourseDetail() {
     }
   };
 
-  const isLessonDone = (lesson) => {
+  const isLessonDone = (lesson, index) => {
+    if (!purchased && index >= 2) return false;
     if (!userProgressForCourse || !userProgressForCourse.completedLessons) return false;
     const doneSet = new Set((userProgressForCourse.completedLessons || []).map(x => String(x)));
     const lid = String(lesson.id ?? lesson._id);
@@ -327,29 +349,63 @@ export default function CourseDetail() {
               <>
                 <h2>Course Curriculum</h2>
                 <div className="curriculum">
-                  {(course.curriculum || []).map((ch) => {
+                  {(course.curriculum || []).map((ch, index) => {
                     const key = ch.id ?? ch._id;
+                    const hasNote = courseNotes.some(n => String(n.courseId) === courseIdResolved() && n.lessonIndex === index && n.content.trim().length > 0);
                     return (
-                      <div className="curriculum-item" key={String(key)}>
-                        <div className="num">{ch.id}</div>
-                        <div className="curriculum-body">
-                          <div className="curriculum-title">{ch.title}</div>
-                          <div className="curriculum-meta">
-                            {ch.mins} min {ch.preview || purchased ? <span className="preview"> ✓ Unlocked</span> : <span className="locked"> Locked</span>}
-                            {isLessonDone(ch) && <span style={{ marginLeft: 8, color: '#10B981', fontWeight: 800 }}>✓ Done</span>}
+                      <div key={String(key)} style={{ display: 'flex', flexDirection: 'column' }}>
+                        <div className="curriculum-item">
+                          <div className="num">
+                            {index + 1}
+                            {hasNote && <span style={{ position: 'absolute', top: -4, right: -4, width: 8, height: 8, background: '#F59E0B', borderRadius: '50%' }} title="Has note" />}
+                          </div>
+                          <div className="curriculum-body">
+                            <div className="curriculum-title">{ch.title}</div>
+                            <div className="curriculum-meta">
+                              {ch.mins} min
+                              {isLessonDone(ch, index) ? (
+                                <span className="preview" style={{ background: '#10B981', marginLeft: 8 }}>✓ Done</span>
+                              ) : (ch.preview || purchased || index < 2 ? (
+                                <span className="preview" style={{ marginLeft: 8 }}>{purchased ? '🔓 Unlocked' : '🔓 Free Preview'}</span>
+                              ) : (
+                                <span className="locked" style={{ marginLeft: 8 }}>🔒 Locked</span>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="curriculum-action" style={{ display: 'flex', gap: 8 }}>
+                            {purchased && (
+                              <button
+                                className="btn outline small"
+                                style={{ color: '#475569', borderColor: '#E2E8F0', padding: '6px 10px' }}
+                                onClick={() => setActiveNoteIndex(activeNoteIndex === index ? null : index)}
+                              >
+                                📝 Add Note
+                              </button>
+                            )}
+                            <button
+                              className="btn outline small"
+                              style={isLessonDone(ch, index) ? { background: '#10B981', color: '#fff', borderColor: '#10B981' } : {}}
+                              onClick={() => {
+                                const isUnlocked = purchased || ch.preview || index < 2;
+                                if (!isUnlocked) return alert('Please purchase the course to view this lesson.');
+                                logActivity(userId, parseInt(ch.mins) || 10);
+                                navigate(`/courses/${course._id || course.id || id}/module/${ch.id ?? ch._id}`);
+                              }}
+                            >
+                              {isLessonDone(ch, index) ? '✓ View' : 'View'}
+                            </button>
                           </div>
                         </div>
-                        <div className="curriculum-action">
-                          <button
-                            className="btn outline small"
-                            onClick={() => {
-                              if (!purchased) return alert('Please purchase the course to view lessons.');
-                              navigate(`/courses/${course._id}/module/${ch.id ?? ch._id}`);
-                            }}
-                          >
-                            {isLessonDone(ch) ? '✓ View' : 'View'}
-                          </button>
-                        </div>
+
+                        <NotePanel
+                          open={activeNoteIndex === index}
+                          userId={userId}
+                          courseId={courseIdResolved()}
+                          lessonIndex={index}
+                          courseData={course}
+                          lessonData={ch}
+                          onClose={() => setActiveNoteIndex(null)}
+                        />
                       </div>
                     );
                   })}
@@ -360,18 +416,20 @@ export default function CourseDetail() {
                     <div className="curriculum-body">
                       <div className="curriculum-title">Final Quiz</div>
                       <div className="curriculum-meta">
-                        { quizAvailableOnServer && quiz && quiz.estimatedMins ? `${quiz.estimatedMins} min` : '10 min' }
-                        { purchased ? <span className="preview" style={{ marginLeft: 8 }}>✓ Unlocked</span> : <span className="locked" style={{ marginLeft: 8 }}>Locked</span> }
-
-                        {/* show Done if server progress says quizPassed */}
-                        {userProgressForCourse && userProgressForCourse.quizPassed && (
-                          <span style={{ marginLeft: 12, color: '#10B981', fontWeight: 800 }}>✓ Done</span>
-                        )}
+                        {quizAvailableOnServer && quiz && quiz.estimatedMins ? `${quiz.estimatedMins} min` : '10 min'}
+                        {userProgressForCourse && userProgressForCourse.quizPassed ? (
+                          <span className="preview" style={{ background: '#10B981', marginLeft: 8 }}>✓ Done</span>
+                        ) : (purchased ? (
+                          <span className="preview" style={{ marginLeft: 8 }}>🔓 Unlocked</span>
+                        ) : (
+                          <span className="locked" style={{ marginLeft: 8 }}>🔒 Locked</span>
+                        ))}
                       </div>
                     </div>
                     <div className="curriculum-action">
                       <button
                         className="btn outline small"
+                        style={userProgressForCourse && userProgressForCourse.quizPassed ? { background: '#10B981', color: '#fff', borderColor: '#10B981' } : {}}
                         onClick={() => {
                           if (!purchased) return alert('Please purchase the course to view the quiz.');
                           openQuiz();
@@ -409,7 +467,14 @@ export default function CourseDetail() {
 
             {purchased || buttonState === 'purchased' ? (
               <>
-                <button className="btn" style={{ background: "#10B981", width: "100%", marginTop: 18 }} disabled>✓ Purchased</button>
+                <button
+                  className="btn primary"
+                  style={{ background: "#7C3AED", width: "100%", marginTop: 18 }}
+                  onClick={() => navigate('/dashboard')}
+                >
+                  {(!userProgressForCourse || userProgressForCourse.percent === 0) ? 'Start Learning →' :
+                    (userProgressForCourse.percent >= 100) ? 'Review Course ✓' : 'Continue →'}
+                </button>
                 <button className="btn outline" style={{ width: "100%", marginTop: 12 }} onClick={handleCancel}>Cancel Purchase</button>
               </>
             ) : (

@@ -10,25 +10,40 @@ const requireAuth = require('../middleware/auth');
 const JWT_SECRET = process.env.JWT_SECRET || 'secret';
 const TOKEN_EXPIRES = '7d';
 
-// Signup
+// Signup (unchanged)
 router.post('/signup', async (req, res) => {
   try {
     const { name, email, password } = req.body || {};
-    if (!name || !email || !password) return res.status(400).json({ message: 'Missing fields' });
+    if (!name || !email || !password)
+      return res.status(400).json({ message: 'Missing fields' });
 
     const existing = await User.findOne({ email: email.toLowerCase() });
-    if (existing) return res.status(409).json({ message: 'User already exists' });
+    if (existing)
+      return res.status(409).json({ message: 'User already exists' });
 
-    const saltRounds = 10;
-    const passwordHash = await bcrypt.hash(password, saltRounds);
+    const passwordHash = await bcrypt.hash(password, 10);
 
-    const user = new User({ name: String(name).trim(), email: email.toLowerCase(), passwordHash });
+    const user = new User({
+      name: name.trim(),
+      email: email.toLowerCase(),
+      passwordHash
+    });
+
     await user.save();
 
-    const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: TOKEN_EXPIRES });
+    const token = jwt.sign(
+      { id: user._id, email: user.email, role: user.role },
+      JWT_SECRET,
+      { expiresIn: TOKEN_EXPIRES }
+    );
 
     res.json({
-      user: { id: String(user._id), name: user.name, email: user.email },
+      user: {
+        id: String(user._id),
+        name: user.name,
+        email: user.email,
+        role: user.role
+      },
       token
     });
   } catch (err) {
@@ -37,22 +52,38 @@ router.post('/signup', async (req, res) => {
   }
 });
 
-// Login
+// Login (UPDATED)
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body || {};
-    if (!email || !password) return res.status(400).json({ message: 'Missing fields' });
+    if (!email || !password)
+      return res.status(400).json({ message: 'Missing fields' });
 
     const user = await User.findOne({ email: email.toLowerCase() });
-    if (!user) return res.status(401).json({ message: 'Invalid credentials' });
+    if (!user)
+      return res.status(401).json({ message: 'Invalid credentials' });
 
     const ok = await bcrypt.compare(password, user.passwordHash);
-    if (!ok) return res.status(401).json({ message: 'Invalid credentials' });
+    if (!ok)
+      return res.status(401).json({ message: 'Invalid credentials' });
 
-    const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: TOKEN_EXPIRES });
+    const token = jwt.sign(
+      {
+        id: user._id,
+        email: user.email,
+        role: user.role // ✅ important
+      },
+      JWT_SECRET,
+      { expiresIn: TOKEN_EXPIRES }
+    );
 
     res.json({
-      user: { id: String(user._id), name: user.name, email: user.email },
+      user: {
+        id: String(user._id),
+        name: user.name,
+        email: user.email,
+        role: user.role // ✅ frontend gets role
+      },
       token
     });
   } catch (err) {
@@ -61,56 +92,19 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// GET /api/auth/me -> current user (protected)
+// me (unchanged but role added)
 router.get('/me', requireAuth, async (req, res) => {
-  try {
-    const user = await User.findById(req.userId).lean();
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    res.json({ user: { id: String(user._id), name: user.name, email: user.email } });
-  } catch (err) {
-    console.error('auth.me', err);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
+  const user = await User.findById(req.userId).lean();
+  if (!user) return res.status(404).json({ message: 'User not found' });
 
-/**
- * PATCH /api/auth/me
- * Body: { name: "New Name" }
- *
- * Updates the current user's name. Returns { user: { id, name, email } } on success.
- */
-router.patch('/me', requireAuth, async (req, res) => {
-  try {
-    const userId = req.userId;
-    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
-
-    const { name } = req.body || {};
-    if (!name || String(name).trim().length < 2) {
-      return res.status(400).json({ message: 'Please provide a valid name (at least 2 characters).' });
+  res.json({
+    user: {
+      id: String(user._id),
+      name: user.name,
+      email: user.email,
+      role: user.role
     }
-
-    const cleanName = String(name).trim();
-
-    const updated = await User.findByIdAndUpdate(
-      userId,
-      { $set: { name: cleanName } },
-      { new: true, select: '_id name email' }
-    ).lean();
-
-    if (!updated) return res.status(404).json({ message: 'User not found' });
-
-    // Return id as string for frontend consistency
-    return res.json({
-      user: {
-        id: String(updated._id),
-        name: updated.name,
-        email: updated.email
-      }
-    });
-  } catch (err) {
-    console.error('PATCH /api/auth/me error:', err);
-    return res.status(500).json({ message: 'Server error while updating profile' });
-  }
+  });
 });
 
 module.exports = router;

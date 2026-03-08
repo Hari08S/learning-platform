@@ -1,73 +1,82 @@
-// src/components/Signup.jsx
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import "../styles/login.css";
+import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import '../styles/login.css';
+import useStore from '../store';
+import SEO from './SEO.jsx';
+
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
 
 const Signup = () => {
   const nav = useNavigate();
+  const { login } = useStore();
 
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [pw, setPw] = useState("");
-  const [cpw, setCpw] = useState("");
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [pw, setPw] = useState('');
+  const [cpw, setCpw] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [showCpw, setShowCpw] = useState(false);
-  const [err, setErr] = useState("");
+  const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
 
-  const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
-
-  const handleSignUp = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setErr('');
 
     if (!name || !email || !pw || !cpw) {
-      setErr("All fields are required.");
+      setErr('Please fill all fields.');
       return;
     }
 
     if (pw !== cpw) {
-      setErr("Passwords do not match.");
+      setErr('Passwords do not match.');
       return;
     }
 
+    setLoading(true);
     try {
-      setErr("");
-      setLoading(true);
-
-      const res = await fetch(`${API_BASE}/api/auth/signup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          email,
-          password: pw,
-        }),
+      const res = await fetch(`${API_BASE}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password: pw })
       });
 
-      const data = await res.json();
-
       if (!res.ok) {
-        setLoading(false);
-        setErr(data.message || "Signup failed.");
-        return;
+        const bodyTxt = await res.text();
+        let msg = 'Registration failed';
+        try {
+          const j = JSON.parse(bodyTxt);
+          if (j.message) msg = j.message;
+        } catch (e) { }
+        throw new Error(msg);
       }
 
-      // Success → redirect to login
-      nav("/login");
-    } catch (error) {
-      console.error(error);
-      setErr("Server error. Try again later.");
+      setSuccess(true);
+      setTimeout(() => {
+        nav('/login');
+      }, 2000);
+
+    } catch (err) {
+      setErr(err.message || 'Registration failed');
+    } finally {
       setLoading(false);
     }
   };
 
   return (
     <main className="login-page">
+      <SEO title="Sign Up" description="Create an account to access premium courses on UPWISE." />
       <div className="login-panel container">
         <div className="panel-left">
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
+            <img src="/logo.png" alt="UPWISE" style={{ width: '40px', height: '40px', borderRadius: '50%', marginRight: '12px' }} />
+            <span style={{ fontSize: '1.5rem', fontWeight: '800', color: '#064e3b' }}>UPWISE</span>
+          </div>
           <h2 className="lp-title">Create Your Account</h2>
+          <p className="lp-desc">Sign up to access premium courses and internships.</p>
 
-          <form className="login-form" onSubmit={handleSignUp} noValidate>
+          <form className="login-form" onSubmit={handleSubmit} noValidate>
 
             <label className="field">
               <span className="field-label">Full Name</span>
@@ -156,9 +165,13 @@ const Signup = () => {
 
         <aside className="panel-right">
           <h3 className="right-title">Why Join UPWISE?</h3>
+          <p style={{ color: "var(--muted)", marginBottom: "16px", fontSize: "0.95rem", lineHeight: "1.5" }}>
+            Join 50,000+ professionals advancing their careers through premium courses and verified internships.
+          </p>
           <ul className="right-features">
             <li>📚 Beginner to advanced courses</li>
-            <li>🏆 Track your progress</li>
+            <li>🏆 Verifiable completion certificates</li>
+            <li>💼 Apply for remote internships</li>
             <li>🚀 Grow your career exponentially</li>
           </ul>
         </aside>

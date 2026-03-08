@@ -11,6 +11,7 @@ export default function LessonPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
   const [marking, setMarking] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -31,6 +32,7 @@ export default function LessonPage() {
         const js = await res.json();
         if (!mounted) return;
         setModule(js.module);
+        setIsCompleted(!!js.isCompleted);
       } catch (e) {
         console.error('load module', e);
         setErr(e.message || 'Could not load module');
@@ -52,7 +54,7 @@ export default function LessonPage() {
       if (cur === courseId) localStorage.removeItem('currentCourseId');
     };
   }, [courseId]);
-  
+
 
   const handleMark = async (goNext = false) => {
     const token = localStorage.getItem('token');
@@ -105,6 +107,7 @@ export default function LessonPage() {
         }
       } else {
         // show a transient confirmation
+        setIsCompleted(true);
         alert('Marked done ✓');
       }
     } catch (err) {
@@ -129,13 +132,40 @@ export default function LessonPage() {
       <div style={{ color: '#64748B', marginBottom: 12 }}>{module.mins || '—'} min</div>
 
       <div style={{ background: '#fff', padding: 22, borderRadius: 12, boxShadow: '0 6px 20px rgba(2,6,23,0.04)' }}>
-        {module.body ? <div dangerouslySetInnerHTML={{ __html: module.body }} /> : <p style={{ color: '#475569' }}>No content provided for this lesson.</p>}
+        {module.type === 'video' && module.videoUrl && (
+          <div style={{ marginBottom: 24 }}>
+            <iframe
+              width="100%"
+              height="500"
+              src={module.videoUrl}
+              title={module.title}
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              style={{ borderRadius: 8, background: '#000' }}
+            ></iframe>
+          </div>
+        )}
+
+        {module.content ? (
+          <div style={{ lineHeight: 1.6, color: '#334155', fontSize: '1.05rem', whiteSpace: 'pre-line' }} dangerouslySetInnerHTML={{ __html: module.content }} />
+        ) : module.body ? (
+          <div dangerouslySetInnerHTML={{ __html: module.body }} />
+        ) : !module.videoUrl ? (
+          <p style={{ color: '#475569' }}>No content provided for this lesson.</p>
+        ) : null}
       </div>
 
       <div style={{ display: 'flex', gap: 12, marginTop: 18 }}>
         {!isQuiz && (
           <>
-            <button className="btn primary" onClick={() => handleMark(false)} disabled={marking}>{marking ? 'Marking…' : 'Mark as done'}</button>
+            <button
+              className={`btn ${isCompleted ? 'outline' : 'primary'}`}
+              onClick={() => handleMark(false)}
+              disabled={marking || isCompleted}
+            >
+              {marking ? 'Marking…' : isCompleted ? '✓ Completed' : 'Mark as done'}
+            </button>
             <button className="btn outline" onClick={() => handleMark(true)} disabled={marking}>{marking ? 'Processing…' : 'Mark done & Next'}</button>
           </>
         )}

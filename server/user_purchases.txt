@@ -1,0 +1,128 @@
+[
+  {
+    "courseId": "692ba36a25b029102c8c37c2",
+    "price": 99,
+    "purchasedAt": "2025-11-30T04:30:20.585Z",
+    "cancelledAt": "2025-11-30T05:46:02.981Z",
+    "status": "cancelled"
+  },
+  {
+    "courseId": "692ba36a25b029102c8c37c4",
+    "price": 99,
+    "purchasedAt": "2025-11-30T05:37:03.305Z",
+    "status": "cancelled",
+    "cancelledAt": "2025-11-30T05:46:06.387Z"
+  },
+  {
+    "courseId": "692ba36a25b029102c8c37c5",
+    "price": 99,
+    "purchasedAt": "2025-11-30T05:37:24.430Z",
+    "status": "cancelled",
+    "cancelledAt": "2025-11-30T06:17:30.814Z"
+  },
+  {
+    "courseId": "692c4008b5bc73c629dab28d",
+    "price": 99,
+    "purchasedAt": "2025-12-04T03:53:41.778Z",
+    "status": "cancelled",
+    "cancelledAt": "2025-12-04T04:20:27.983Z"
+  },
+  {
+    "courseId": "692c4008b5bc73c629dab28c",
+    "price": 99,
+    "purchasedAt": "2025-12-04T04:48:16.629Z",
+    "status": "cancelled",
+    "cancelledAt": "2025-12-04T05:41:40.979Z"
+  },
+  {
+    "courseId": "692c4008b5bc73c629dab289",
+    "price": 99,
+    "purchasedAt": "2025-12-06T05:54:49.873Z",
+    "status": "active"
+  },
+  {
+    "courseId": "69315466baa5db9a50f4cfc3",
+    "price": 99,
+    "purchasedAt": "2025-12-06T05:56:41.852Z",
+    "status": "active"
+  },
+  {
+    "courseId": "69315466baa5db9a50f4cfc4",
+    "price": 99,
+    "purchasedAt": "2025-12-06T05:57:09.505Z",
+    "status": "cancelled",
+    "cancelledAt": "2025-12-07T04:53:04.433Z"
+  },
+  {
+    "courseId": "69315466baa5db9a50f4cfc7",
+    "price": 99,
+    "purchasedAt": "2025-12-06T06:14:13.350Z",
+    "status": "cancelled",
+    "cancelledAt": "2026-03-06T02:13:58.551Z"
+  },
+  {
+    "courseId": "69315466baa5db9a50f4cfc5",
+    "price": 99,
+    "purchasedAt": "2025-12-07T02:07:28.081Z",
+    "status": "cancelled",
+    "cancelledAt": "2025-12-07T14:12:05.058Z"
+  },
+  {
+    "courseId": "69315466baa5db9a50f4cfc6",
+    "price": 99,
+    "purchasedAt": "2026-03-06T01:48:11.352Z",
+    "status": "cancelled",
+    "_id": "69aa325b116749e857461839",
+    "cancelledAt": "2026-03-06T01:55:39.621Z"
+  },
+  {
+    "courseId": "69315466baa5db9a50f4cfc7",
+    "price": 99,
+    "purchasedAt": "2026-03-06T01:55:46.427Z",
+    "status": "cancelled",
+    "_id": "69aa3422116749e85746197e",
+    "cancelledAt": "2026-03-06T02:13:58.551Z"
+  },
+  {
+    "courseId": "69315466baa5db9a50f4cfc7",
+    "price": 99,
+    "purchasedAt": "2026-03-06T06:20:29.051Z",
+    "status": "active",
+    "_id": "69aa722de7ad6331c1e2e3e2"
+  },
+  {
+    "courseId": "69aa9fc54c12d0a6a5a3c297",
+    "price": 99,
+    "purchasedAt": "2026-03-06T09:57:57.455Z",
+    "status": "active",
+    "_id": "69aaa525d63b3dafb0c34a9a"
+  },
+  {
+    "courseId": "69aaad9dd53774bb2d518143",
+    "price": 99,
+    "purchasedAt": "2026-03-06T15:38:18.768Z",
+    "status": "active",
+    "_id": "69aaf4ead63b3dafb0c34c11"
+  },
+  {
+    "courseId": "69aaf56e1ddd861be3783789",
+    "price": 99,
+    "purchasedAt": "2026-03-06T15:40:58.429Z",
+    "status": "active",
+    "_id": "69aaf58ad63b3dafb0c34cb9"
+  },
+  {
+    "courseId": "69ab00e7e8ddcb0a50f5b4fe",
+    "price": 99,
+    "purchasedAt": "2026-03-06T16:30:38.616Z",
+    "status": "active",
+    "_id": "69ab012e1c4141671cc196ab"
+  },
+  {
+    "courseId": "69ab0822da053b04a72bca92",
+    "price": 99,
+    "purchasedAt": "2026-03-06T17:26:04.347Z",
+    "status": "active",
+    "_id": "69ab0e2c1c4141671cc198f4"
+  }
+]

@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import './App.css';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
+
 import ForgotPassword from './components/ForgotPassword.jsx';
 import Navbar from './components/Navbar.jsx';
 import Hero from './components/Hero.jsx';
@@ -13,14 +14,37 @@ import Courses from './components/Courses.jsx';
 import CourseDetail from './components/CourseDetail.jsx';
 import CertificatesPage from './components/CertificatesPage.jsx';
 import Settings from './components/Settings.jsx';
-import LessonPage from './components/LessonPage';
-import QuizPage from './components/QuizPage';
+import InternshipsList from './components/InternshipsList.jsx';
+import InternshipDetails from './components/InternshipDetails.jsx';
+import InternPortal from './components/InternPortal.jsx';
+import NotFound from './components/NotFound.jsx';
+import Pricing from './components/Pricing.jsx';
+import { Toaster } from 'react-hot-toast';
 import { startPresenceTracker, stopPresenceTracker } from './utils/presenceTracker';
-import ScrollToTop from './ScrollToTop.jsx'; // 👈 NEW
+import ScrollToTop from './ScrollToTop.jsx';
+import useStore from './store';
+import LessonPage from './components/LessonPage.jsx';
+import QuizPage from './components/QuizPage.jsx';
+
+// Security and Reliability
+import ErrorBoundary from './components/ErrorBoundary.jsx';
+import ProtectedRoute from './components/ProtectedRoute.jsx';
+import LoadingSpinner from './components/LoadingSpinner.jsx';
+import SEO from './components/SEO.jsx';
+
+// ===== ADMIN IMPORTS =====
+import AdminLayout from './admin/AdminLayout.jsx';
+import AdminDashboard from './admin/AdminDashboard';
+import AdminUsers from './admin/AdminUsers';
+import AdminCourses from './admin/AdminCourses';
+import AdminPurchases from "./admin/AdminPurchases";
+import AdminProfile from "./admin/AdminProfile";
+import AdminInternships from "./admin/AdminInternships";
 
 function Home({ loggedIn }) {
   return (
     <>
+      <SEO title="Home" description="Welcome to UPWISE. Start learning today!" />
       <Hero loggedIn={loggedIn} />
       <Feature />
     </>
@@ -29,60 +53,110 @@ function Home({ loggedIn }) {
 
 function App() {
   const [loggedIn, setLoggedIn] = useState(false);
+  const user = JSON.parse(localStorage.getItem('user') || 'null');
 
-  // start presence tracker only when authenticated
+  // Presence tracker
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (!token) return undefined;
+    if (!token) return;
 
-    // If your tracker accepts token param you can pass it; here we assume it reads localStorage
-    const cleanup = startPresenceTracker({ intervalSeconds: 60, minActiveSecondsToSend: 60 });
+    const cleanup = startPresenceTracker({
+      intervalSeconds: 60,
+      minActiveSecondsToSend: 60,
+    });
 
     return () => {
       if (cleanup) cleanup();
       stopPresenceTracker();
     };
-  }, []); // runs once; will only start if token exists
-
-  // Load login status on refresh
-  useEffect(() => {
-    const saved = localStorage.getItem("isLoggedIn");
-    if (saved === "true") setLoggedIn(true);
   }, []);
 
-  return (
-    <>
-      {/* 👇 This makes every route change scroll to the top */}
-      <ScrollToTop />
+  const { isLoggedIn: storeIsLoggedIn, setInternshipEnrollments } = useStore();
 
+  // Restore login state
+  useEffect(() => {
+    const saved = localStorage.getItem('isLoggedIn');
+    if (saved === 'true') setLoggedIn(true);
+  }, []);
+
+  // Sync Internship Enrollments from MongoDB
+  useEffect(() => {
+    if (loggedIn) {
+      const fetchMyInternships = async () => {
+        try {
+          const res = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:4000'}/api/user/internships/my`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const ids = (data.applications || [])
+              .map(app => (app.internshipId?._id || app.internshipId))
+              .filter(Boolean);
+            setInternshipEnrollments(ids);
+          }
+        } catch (err) {
+          console.error("Failed to sync status from DB", err);
+        }
+      };
+      fetchMyInternships();
+    } else {
+      setInternshipEnrollments([]);
+    }
+  }, [loggedIn, setInternshipEnrollments]);
+
+  return (
+    <ErrorBoundary>
+      <ScrollToTop />
+      <Toaster position="top-right" toastOptions={{ duration: 3000, style: { background: '#333', color: '#fff', borderRadius: '10px' } }} />
       <Navbar loggedIn={loggedIn} setLoggedIn={setLoggedIn} />
 
-      <main>
-        <Routes>
-          <Route path="/" element={<Home loggedIn={loggedIn} />} />
+      <main style={{ minHeight: 'calc(100vh - 140px)' }}>
+        <Suspense fallback={<LoadingSpinner fullScreen />}>
+          <Routes>
+            {/* PUBLIC ROUTES */}
+            <Route path="/" element={<Home loggedIn={loggedIn} />} />
+            <Route path="/login" element={<Login setLoggedIn={setLoggedIn} />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/pricing" element={<Pricing />} />
 
-          {/* Protected Routes */}
-          {loggedIn && (
-            <>
+            {/* USER PORTAL ROUTES */}
+            <Route element={<ProtectedRoute requireAdmin={false} />}>
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/courses" element={<Courses />} />
               <Route path="/courses/:id" element={<CourseDetail />} />
               <Route path="/certificates" element={<CertificatesPage />} />
               <Route path="/settings" element={<Settings setLoggedIn={setLoggedIn} />} />
-            </>
-          )}
 
-          {/* Public Routes */}
-          <Route path="/login" element={<Login setLoggedIn={setLoggedIn} />} />
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/courses/:courseId/module/:moduleId" element={<LessonPage />} />
-          <Route path="/courses/:courseId/quiz" element={<QuizPage />} />
-        </Routes>
+              <Route path="/internships" element={<InternshipsList />} />
+              <Route path="/internships/:id" element={<InternshipDetails />} />
+              <Route path="/internships/:id/portal" element={<InternPortal />} />
+
+              <Route path="/courses/:courseId/module/:moduleId" element={<LessonPage />} />
+              <Route path="/courses/:courseId/quiz" element={<QuizPage />} />
+            </Route>
+
+            {/* ADMIN ROUTES */}
+            <Route element={<ProtectedRoute requireAdmin={true} />}>
+              <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+              <Route path="/admin/*" element={<AdminLayout />}>
+                <Route path="dashboard" element={<AdminDashboard />} />
+                <Route path="users" element={<AdminUsers />} />
+                <Route path="courses" element={<AdminCourses />} />
+                <Route path="internships" element={<AdminInternships />} />
+                <Route path="purchases" element={<AdminPurchases />} />
+                <Route path="profile" element={<AdminProfile />} />
+              </Route>
+            </Route>
+
+            {/* FALLBACK */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
       </main>
 
       <Footer />
-    </>
+    </ErrorBoundary>
   );
 }
 

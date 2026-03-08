@@ -1,12 +1,16 @@
 // src/components/Dashboard.jsx
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import '../styles/dashboard.css';
 import { Link, useNavigate } from 'react-router-dom';
+import SEO from './SEO.jsx';
 import '../styles/courses.css';
 
 import LearningTimeline from './LearningTimeline';
 import AchievementsRow from './AchievementsRow';
 import QuickActions from './QuickActions';
 import PurchaseHistoryModal from './PurchaseHistoryModal';
+import LearningHeatmap from './LearningHeatmap.jsx';
+import MyNotes from './MyNotes.jsx';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
 
@@ -56,7 +60,8 @@ function computeFromProgress(progressList = []) {
 
 const Dashboard = () => {
   const nav = useNavigate();
-  const [userName, setUserName] = useState('');
+  const userObj = JSON.parse(localStorage.getItem('user') || '{}');
+  const [userName, setUserName] = useState(userObj.name || userObj.email || '');
   const [loadingUser, setLoadingUser] = useState(true);
   const [activeCourses, setActiveCourses] = useState(0);
   const [completedCount, setCompletedCount] = useState(0);
@@ -69,6 +74,11 @@ const Dashboard = () => {
   const [badges, setBadges] = useState([]);
   const [lastCourseId, setLastCourseId] = useState(null);
   const [purchasesOpen, setPurchasesOpen] = useState(false);
+  const [weeklyGoalMinutes, setWeeklyGoalMinutes] = useState(0);
+
+  // New Internship State
+  const [internships, setInternships] = useState([]);
+  const [loadingInternships, setLoadingInternships] = useState(true);
 
   /**
    * fmtHours: minutes for <1h, 1-decimal hours for >=1h
@@ -87,7 +97,6 @@ const Dashboard = () => {
     return `${dec.toFixed(1)} h`;
   };
 
-  // Set weekly goal flow: tries server endpoint first, falls back to localStorage
   const handleSetWeeklyGoal = async () => {
     try {
       const input = prompt('Set weekly goal in minutes (e.g. 150). Leave empty to cancel.');
@@ -96,28 +105,20 @@ const Dashboard = () => {
       if (!isFinite(mins) || mins <= 0) return alert('Please enter a valid number of minutes.');
 
       const token = localStorage.getItem('token');
-      // Try a server endpoint if available
-      if (token) {
-        try {
-          const r = await fetch(`${API_BASE}/api/me/goal`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ weeklyGoalMinutes: mins })
-          });
-          if (r.ok) {
-            alert('Weekly goal saved.');
-            window.dispatchEvent(new Event('user.updated'));
-            return;
-          }
-          // if server doesn't support it, we'll fall back to local storage
-        } catch (e) {
-          // ignore and fallback to localStorage
-        }
-      }
+      if (!token) return alert('Not logged in');
 
-      localStorage.setItem('weeklyGoalMinutes', String(mins));
-      alert('Weekly goal saved locally.');
-      window.dispatchEvent(new Event('user.updated'));
+      const r = await fetch(`${API_BASE}/api/me/goal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ weeklyGoalMinutes: mins })
+      });
+      if (r.ok) {
+        setWeeklyGoalMinutes(mins);
+        alert('Weekly goal saved.');
+        window.dispatchEvent(new Event('user.updated'));
+      } else {
+        throw new Error('Failed to save');
+      }
     } catch (err) {
       console.error('Set weekly goal failed', err);
       alert('Could not save weekly goal.');
@@ -129,16 +130,29 @@ const Dashboard = () => {
     setLoadingPurchases(true);
     setErrMsg('');
     try {
-      // best-effort user name
+      // best-effort user name & goal
       try {
-        const meRes = await fetch(`${API_BASE}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` }});
+        const [meRes, goalRes, internshipRes] = await Promise.all([
+          fetch(`${API_BASE}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`${API_BASE}/api/me/goal`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`${API_BASE}/api/user/internships/my`, { headers: { Authorization: `Bearer ${token}` } })
+        ]);
         if (meRes.ok) {
           const meJson = await meRes.json();
           setUserName(meJson.user?.name || meJson.user?.email || '');
         }
+        if (goalRes.ok) {
+          const goalJson = await goalRes.json();
+          setWeeklyGoalMinutes(goalJson.weeklyGoalMinutes || 0);
+        }
+        if (internshipRes.ok) {
+          const intJson = await internshipRes.json();
+          setInternships(intJson.applications || []);
+        }
       } catch (e) { /* ignore */ }
+      setLoadingInternships(false);
 
-      const progRes = await fetch(`${API_BASE}/api/me/progress`, { headers: { Authorization: `Bearer ${token}` }});
+      const progRes = await fetch(`${API_BASE}/api/me/progress`, { headers: { Authorization: `Bearer ${token}` } });
       if (!progRes.ok) {
         if (progRes.status === 401 || progRes.status === 403) {
           setErrMsg('You need to sign in to view your dashboard.');
@@ -152,6 +166,10 @@ const Dashboard = () => {
 
       const serverPurchases = Array.isArray(js.purchasedCourses) ? js.purchasedCourses : [];
       const progressList = Array.isArray(js.progress) ? js.progress : [];
+
+      if (js.currentCourseId && !localStorage.getItem('currentCourseId')) {
+        localStorage.setItem('currentCourseId', String(js.currentCourseId));
+      }
 
       // fallback summary
       const summary = computeFromProgress(progressList);
@@ -367,6 +385,7 @@ const Dashboard = () => {
     const onUpdated = () => {
       const t = localStorage.getItem('token');
       if (t) refreshAndLoad(t);
+      setWeeklyGoalMinutes(Number(localStorage.getItem('weeklyGoalMinutes')) || 0);
     };
     window.addEventListener('purchases.updated', onUpdated);
     window.addEventListener('user.updated', onUpdated);
@@ -379,29 +398,39 @@ const Dashboard = () => {
   const handleCancel = async (courseId) => {
     if (!window.confirm('Are you sure you want to cancel this purchase?')) return;
     const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!token) return alert('You must be signed in.');
     try {
       const res = await fetch(`${API_BASE}/api/purchases/${courseId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
-      if(res.ok) {
-        setPurchasedCourses(prev => prev.filter(pc => String(pc.courseId) !== String(courseId)));
+      const body = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setPurchasedCourses(prev => {
+          const updated = prev.filter(pc => String(pc.courseId) !== String(courseId));
+          setActiveCourses(updated.length);
+          return updated;
+        });
         window.dispatchEvent(new Event('purchases.updated'));
+      } else {
+        alert(body.message || 'Could not cancel purchase');
       }
-    } catch(err) { alert(err.message); }
+    } catch (err) { alert(err.message); }
   };
 
   const CourseCard = ({ c }) => {
     const rawProgress = c.progress || {};
     let percent = (typeof rawProgress.percent === 'number') ? rawProgress.percent : Number(rawProgress.percent || 0);
-    // keep UX: show 99% if percent >=100 but user hasn't passed quiz
     if (percent >= 100 && !rawProgress.quizPassed) percent = 99;
     const thumb = c.img && typeof c.img === 'string' ? c.img : '/logo.png';
+    const tag = (c.raw && c.raw.tag) || 'Course';
+    const level = (c.raw && c.raw.level) || 'All Levels';
     return (
       <article className="course-card small-card" style={{ width: 320, marginBottom: 18 }}>
-        <div className="card-media" style={{ height: 150, borderRadius: 8, overflow: 'hidden', backgroundColor: '#f3f4f6' }}>
+        <div className="card-media" style={{ height: 150, borderRadius: 8, overflow: 'hidden', backgroundColor: '#f3f4f6', position: 'relative' }}>
           <img src={thumb} alt={c.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <div className="card-tag" style={{ position: 'absolute', top: 10, bottom: 'auto', left: 10, right: 'auto', background: 'rgba(0,0,0,0.6)', color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 12, boxShadow: 'none' }}>{tag}</div>
+          <div className="card-tag" style={{ position: 'absolute', bottom: 10, top: 'auto', right: 10, left: 'auto', background: 'rgba(124, 58, 237, 0.9)', color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 12, boxShadow: 'none' }}>{level}</div>
         </div>
         <div className="card-body" style={{ paddingTop: 12 }}>
           <h3 className="card-title" style={{ marginBottom: 6 }}>{c.title}</h3>
@@ -412,9 +441,9 @@ const Dashboard = () => {
             </div>
             <div style={{ marginTop: 8, color: '#6b7280', fontSize: 13 }}>{percent}% completed</div>
           </div>
-          <div className="card-actions" style={{ marginTop: 12 }}>
-            <button className="btn primary" onClick={() => nav(`/courses/${c.courseId}`)} style={{ flex: 1 }}>Continue Learning</button>
-            <button className="btn outline" onClick={() => handleCancel(c.courseId)}>Cancel</button>
+          <div className="card-actions" style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+            <button className="btn primary" onClick={() => nav(`/courses/${c.courseId}`)} style={{ flex: 1, whiteSpace: 'nowrap' }}>Continue</button>
+            <button className="btn outline" onClick={() => handleCancel(c.courseId)} style={{ padding: '8px 14px' }}>Cancel</button>
           </div>
         </div>
       </article>
@@ -425,32 +454,109 @@ const Dashboard = () => {
   const resumeLast = (id) => id && nav(`/courses/${id}`);
   const downloadLastCert = (id) => id && nav(`/courses/${id}`);
 
+  // Calculate goal progress based on hoursLearned
+  const currentMinutesLearned = hoursLearned * 60;
+  const goalPercent = weeklyGoalMinutes > 0 ? Math.min(100, Math.round((currentMinutesLearned / weeklyGoalMinutes) * 100)) : 0;
+
+  const dailyQuotes = [
+    "“The beautiful thing about learning is that nobody can take it away from you.” — B.B. King",
+    "“Live as if you were to die tomorrow. Learn as if you were to live forever.” — Mahatma Gandhi",
+    "“Wisdom is not a product of schooling but of the lifelong attempt to acquire it.” — Albert Einstein",
+    "Every expert was once a beginner. Keep pushing forward!",
+    "Your learning streak is your superpower. Don't break it!",
+  ];
+  const qIndex = new Date().getDay() % dailyQuotes.length;
+
   return (
     <div className="dash-container container" style={{ paddingTop: 24, paddingBottom: 48 }}>
-      <h1 className="dash-title">Welcome back, {displayName}! 👋</h1>
+      <div style={{ marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <h1 className="dash-title" style={{ margin: 0 }}>Welcome back, {displayName}! 👋</h1>
+        <div style={{ background: 'linear-gradient(135deg, #7c3aed, #a78bfa)', color: '#fff', padding: '12px 20px', borderRadius: 12, fontSize: 14, fontWeight: 700, boxShadow: '0 4px 14px rgba(124,58,237,0.3)', width: 'fit-content', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 18 }}>💡</span> Tip of the Day: {dailyQuotes[qIndex]}
+        </div>
+      </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginTop: 18 }}>
-        <div style={{ background: '#FFEDEE', borderRadius: 12, padding: '18px 20px' }}>
+        <div style={{ background: 'var(--dash-c1)', borderRadius: 12, padding: '18px 20px' }}>
           <div style={{ fontSize: 14, fontWeight: 700 }}>Active Courses</div>
           <div style={{ fontSize: 28, fontWeight: 800, color: '#FF6B6B' }}>{activeCourses}</div>
         </div>
-        <div style={{ background: '#E8FFFC', borderRadius: 12, padding: '18px 20px' }}>
+        <div style={{ background: 'var(--dash-c2)', borderRadius: 12, padding: '18px 20px' }}>
           <div style={{ fontSize: 14, fontWeight: 700 }}>Completed</div>
           <div style={{ fontSize: 28, fontWeight: 800, color: '#4ECDC4' }}>{completedCount}</div>
         </div>
-        <div style={{ background: '#E8F9FB', borderRadius: 12, padding: '18px 20px' }}>
+        <div style={{ background: 'var(--dash-c3)', borderRadius: 12, padding: '18px 20px' }}>
           <div style={{ fontSize: 14, fontWeight: 700 }}>Hours Learned</div>
           <div style={{ fontSize: 28, fontWeight: 800, color: '#45B7D1' }}>{fmtHours(hoursLearned)}</div>
         </div>
-        <div style={{ background: '#FFF8DF', borderRadius: 12, padding: '18px 20px' }}>
+        <div style={{ background: 'var(--dash-c4)', borderRadius: 12, padding: '18px 20px', position: 'relative' }}>
           <div style={{ fontSize: 14, fontWeight: 700 }}>Learning Streak</div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: '#F9CA24' }}>{streakDays} days</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: '#F9CA24', display: 'flex', alignItems: 'center', gap: 6 }}>
+            {streakDays} days
+            {streakDays >= 3 && (
+              <span style={{ display: 'inline-block', animation: 'flameBounce 1s infinite alternate ease-in-out', fontSize: 24 }}>🔥</span>
+            )}
+          </div>
         </div>
       </div>
+
+      {weeklyGoalMinutes > 0 && (
+        <div style={{ marginTop: 24, background: 'var(--card-bg)', borderRadius: 12, padding: 22, boxShadow: 'var(--shadow)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <h3 style={{ margin: 0 }}>Weekly Goal: {weeklyGoalMinutes} mins</h3>
+            <div style={{ fontWeight: 800, color: goalPercent >= 100 ? '#10B981' : '#7C3AED' }}>{goalPercent}%</div>
+          </div>
+          <div style={{ height: 10, background: 'var(--progress-bg, #eef2f7)', borderRadius: 8, overflow: 'hidden' }}>
+            <div style={{ width: `${goalPercent}%`, height: '100%', background: goalPercent >= 100 ? '#10B981' : 'linear-gradient(90deg, #7C3AED, #A78BFA)' }} />
+          </div>
+          <p style={{ margin: '8px 0 0', color: '#64748B', fontSize: 13 }}>
+            You've completed {Math.round(currentMinutesLearned)} minutes out of your {weeklyGoalMinutes} minute goal.
+          </p>
+        </div>
+      )}
+
       <div style={{ marginTop: 28 }}>
         <h2 style={{ marginBottom: 12 }}>Your Courses</h2>
         {loadingPurchases ? <div>Loading...</div> : purchasedCourses.length === 0 ? <div>No courses yet.</div> : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 18 }}>
             {purchasedCourses.map((c) => <CourseCard key={String(c.courseId)} c={c} />)}
+          </div>
+        )}
+      </div>
+
+      <div style={{ marginTop: 28 }}>
+        <h2 style={{ marginBottom: 12 }}>Your Internships</h2>
+        {loadingInternships ? <div>Loading internships...</div> : internships.length === 0 ? <div>No active internships.</div> : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 18 }}>
+            {internships.map((app) => {
+              const i = app.internshipId;
+              if (!i) return null;
+              const thumb = i.thumbnail || '/logo.png';
+              // Approximate progress from number of completed tasks (or simple fallback)
+              const pct = applicationProgress => typeof applicationProgress === 'number' ? applicationProgress : 0;
+
+              return (
+                <article className="course-card small-card" key={app._id} style={{ width: 320, marginBottom: 18 }}>
+                  <div className="card-media" style={{ height: 150, borderRadius: 8, overflow: 'hidden', backgroundColor: '#f3f4f6', position: 'relative' }}>
+                    <img src={thumb} alt={i.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <div className="card-tag" style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(0,0,0,0.6)', color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 12, textTransform: 'capitalize' }}>{i.domain}</div>
+                    <div className="card-tag" style={{ position: 'absolute', bottom: 10, right: 10, background: 'rgba(16, 185, 129, 0.9)', color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 12 }}>{app.status}</div>
+                  </div>
+                  <div className="card-body" style={{ paddingTop: 12 }}>
+                    <h3 className="card-title" style={{ marginBottom: 6 }}>{i.title}</h3>
+                    <p className="card-author" style={{ margin: 0, color: '#6b7280' }}>at {i.company || 'Upwise'}</p>
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{ height: 8, background: '#eef2f7', borderRadius: 6, overflow: 'hidden' }}>
+                        <div style={{ width: `${Math.min(100, pct(app.progress))}%`, height: '100%', background: '#10b981' }} />
+                      </div>
+                      <div style={{ marginTop: 8, color: '#6b7280', fontSize: 13 }}>{pct(app.progress)}% completed</div>
+                    </div>
+                    <div className="card-actions" style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+                      <button className="btn primary" onClick={() => nav(`/internships/${i._id}/portal`)} style={{ flex: 1, whiteSpace: 'nowrap', background: '#10b981' }}>Continue</button>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         )}
       </div>
@@ -461,6 +567,11 @@ const Dashboard = () => {
           onSetGoal={handleSetWeeklyGoal}
         />
         <AchievementsRow badges={badges} />
+
+        <LearningHeatmap userId={userObj?.id || userObj?._id || 'unknown'} />
+
+        <MyNotes userId={userObj?.id || userObj?._id || 'unknown'} />
+
         <LearningTimeline events={timeline} />
       </div>
     </div>

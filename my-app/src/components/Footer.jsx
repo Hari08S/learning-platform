@@ -22,7 +22,7 @@ const Footer = () => {
     <>
       <footer className="footer">
         <div className="container">
-          
+
           <div className="footer-content">
 
             {/* Brand / Legal */}
@@ -143,7 +143,7 @@ const Footer = () => {
                 Join 50,000+ professionals learning with lifetime-access courses.
               </p>
               <Link
-                to="/signup"
+                to="/courses"
                 className="btn primary small footer-cta"
               >
                 Start Your Journey

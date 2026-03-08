@@ -108,14 +108,14 @@
     font-weight: 800;
   }
   .lp-desc {
-    color: #475569;
+    color: var(--muted);
     margin-bottom: 18px;
   }
   
   /* form */
   .login-form { margin-top: 6px; display: flex; flex-direction: column; gap: 12px; }
   .field { display: flex; flex-direction: column; gap: 8px; }
-  .field-label { font-size: 0.85rem; color: #334155; font-weight: 700; }
+  .field-label { font-size: 0.85rem; color: var(--muted); font-weight: 700; }
   .input {
     padding: 12px 14px;
     border-radius: 10px;
@@ -154,12 +154,12 @@
   .login-btn:hover { transform: translateY(-3px); box-shadow: 0 14px 30px rgba(16,185,129,0.18); }
   
   /* small note */
-  .small-note { color: #6B7280; font-size: 0.9rem; margin-top: 8px; }
+  .small-note { color: var(--muted); font-size: 0.9rem; margin-top: 8px; }
   
   /* right side */
   .right-title { color: #065F46; font-weight: 800; margin-bottom: 12px; }
-  .right-features { list-style: none; color: #334155; margin: 0 0 12px 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-  .right-cta { margin-top: 12px; color: #475569; font-size: 0.95rem; }
+  .right-features { list-style: none; color: var(--muted); margin: 0 0 12px 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .right-cta { margin-top: 12px; color: var(--muted); font-size: 0.95rem; }
   
   /* responsive */
   @media (max-width: 980px) {
@@ -204,7 +204,7 @@
 
 /* Optional: slightly dim the eye so it doesn't steal attention */
 .pw-eye {
-  color: #6b7280;
+  color: var(--muted);
 }
 
 /* If you use .password-wrapper .input (some projects separate input styling), ensure it stretches */

@@ -1,0 +1,12 @@
+{
+  "firstLesson": {
+    "id": 1,
+    "title": "Design Fundamentals & Principles",
+    "mins": 20,
+    "preview": true,
+    "type": "video",
+    "content": "Learn the core principles of design: alignment, contrast, hierarchy, and balance.",
+    "videoUrl": "https://www.youtube.com/embed/c9Wg6Cb_YlU"
+  },
+  "totalLessons": 8
+}

@@ -78,7 +78,7 @@ export default function PurchaseHistoryModal({ open, onClose }) {
     loadPurchases();
 
     function onUpdated() {
-      loadPurchases().catch(() => {});
+      loadPurchases().catch(() => { });
     }
     window.addEventListener('purchases.updated', onUpdated);
     window.addEventListener('user.updated', onUpdated);
@@ -237,28 +237,45 @@ export default function PurchaseHistoryModal({ open, onClose }) {
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <button
+                      className="btn outline small"
+                      onClick={() => {
+                        const invoiceText = `INVOICE\n\nCourse: ${p.title}\nAuthor: ${p.author}\nPrice: rs ${p.price}\nDate: ${p.purchasedAt ? new Date(p.purchasedAt).toLocaleString() : 'N/A'}\nStatus: ${p.status}\n\nThank you for learning with UPWISE!`;
+                        const blob = new Blob([invoiceText], { type: 'text/plain' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `Invoice-${p.title.replace(/\\s+/g, '-')}.txt`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                      title="Download Invoice"
+                    >
+                      📄 Invoice
+                    </button>
                     {p.status === 'active' ? (
                       <button
-                        className="btn outline"
+                        className="btn outline small"
+                        style={{ color: '#ef4444', borderColor: '#ef4444' }}
                         onClick={() => doCancel(p.purchaseId)}
                       >
                         Cancel
                       </button>
                     ) : (
                       <button
-                        className="btn primary"
+                        className="btn primary small"
                         onClick={() => doRestore(p.purchaseId)}
                       >
                         Restore
                       </button>
                     )}
                     <Link
-                      className="btn"
+                      className="btn small"
                       to={`/courses/${p.courseId}`}
                       onClick={onClose}
-                      style={{ textDecoration: 'none', textAlign: 'center' }}
+                      style={{ textDecoration: 'none', textAlign: 'center', background: 'var(--border)', color: 'var(--text)' }}
                     >
-                      Open
+                      Open Course
                     </Link>
                   </div>
                 </div>

@@ -1,89 +1,72 @@
-// server/server.js
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const connectDB = require('./config/db');
+const helmet = require('helmet');
+const morgan = require('morgan');
 
-// require routes
-const authRoutes = require('./routes/auth');
-const coursesRoutes = require('./routes/courses');
-const purchasesRoutes = require('./routes/purchases');
-const activityRoutes = require('./routes/activity');
-const badgesRoutes = require('./routes/badges');
-const lessonsRoutes = require('./routes/lessons');
-
-const quizzesRouter = require('./routes/quizzes');
-const quizRoutes = require('./routes/quiz');
-const progressRoutes = require('./routes/progress');
-
-// certificates route (optional)
-let certificatesRoutes;
-try {
-  certificatesRoutes = require('./routes/certificates');
-} catch (e) {
-  console.warn('Warning: certificates route not found (server/routes/certificates.js). Certificate endpoints disabled.');
-  certificatesRoutes = null;
-}
+const connectDB = require('./src/config/db');
+const corsOptions = require('./src/config/cors');
+const { generalLimiter } = require('./src/middleware/rateLimiter');
+const errorHandler = require('./src/middleware/errorHandler');
+const apiRoutes = require('./src/routes');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-// connect DB
-const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/upwise";
+// ─────────── Database ───────────
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/upwise';
 connectDB(MONGO_URI);
 
-// -----------------------------
-// 🔥 FIXED CORS CONFIG
-// -----------------------------
-const allowedOrigins = [
-  "http://localhost:5173",
-  "http://localhost:5174",  // your frontend in screenshot
-];
+// ─────────── Global Middleware ───────────
+app.use(helmet()); // Security headers
+app.use(morgan('dev')); // Request logging
+app.use(cors(corsOptions));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+app.use(generalLimiter); // Rate limiting
 
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);  // allow Postman/curl
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    console.log("❌ Blocked by CORS:", origin);
-    return callback(new Error("Not allowed by CORS"));
-  },
-  credentials: true,
-}));
+// ─────────── API Routes ───────────
+app.use('/api', apiRoutes);
 
-// JSON parser
-app.use(express.json());
-
-// -----------------------------
-// Routes
-// -----------------------------
-app.use('/api/auth', authRoutes);
-app.use('/api/courses', coursesRoutes);
-
-app.use('/api', purchasesRoutes);
-app.use('/api', lessonsRoutes);
-
-app.use('/api/quizzes', quizzesRouter);
-
-app.use('/api', quizRoutes);
-
-app.use('/api/me', progressRoutes);
-
-app.use('/api', activityRoutes);
-app.use('/api', badgesRoutes);
-
-if (certificatesRoutes) {
-  app.use('/api/me', certificatesRoutes);
-}
-
-// Health check
-app.get('/', (req, res) => res.send('UPWISE API running'));
-
-// Global error handler
-app.use((err, req, res, next) => {
-  console.error('Server error', err);
-  res.status(500).json({ message: 'Server error' });
+// ─────────── Health Check ───────────
+app.get('/', (req, res) => {
+  res.json({
+    status: 'ok',
+    name: 'UpWise API',
+    version: '1.0.0',
+    timestamp: new Date().toISOString(),
+  });
 });
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'healthy', uptime: process.uptime() });
+});
+
+// ─────────── 404 Handler ───────────
+app.use((req, res) => {
+  res.status(404).json({ message: `Route not found: ${req.method} ${req.originalUrl}` });
+});
+
+// ─────────── Error Handler ───────────
+app.use(errorHandler);
+
+// ─────────── Start Server ───────────
+const server = app.listen(PORT, () => {
+  console.log(`\n🚀 UpWise API running on port ${PORT}`);
+  console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`   Health: http://localhost:${PORT}/api/health\n`);
+});
+
+// ─────────── Graceful Shutdown ───────────
+const shutdown = (signal) => {
+  console.log(`\n${signal} received. Shutting down gracefully...`);
+  server.close(() => {
+    console.log('Server closed.');
+    process.exit(0);
+  });
+  // Force exit after 10s
+  setTimeout(() => process.exit(1), 10000);
+};
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
