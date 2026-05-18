@@ -16,7 +16,9 @@ export default function InternshipsList() {
     const [internships, setInternships] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    const { internshipEnrollments, setInternshipEnrollments, isLoggedIn } = useStore();
+    const internshipEnrollments = useStore(state => state.internshipEnrollments);
+    const setInternshipEnrollments = useStore(state => state.setInternshipEnrollments);
+    const isLoggedIn = useStore(state => state.isLoggedIn);
     const navigate = useNavigate();
 
     // Fetch Internships List
@@ -122,7 +124,13 @@ export default function InternshipsList() {
 
                         return (
                             <article className="course-card" key={internship._id}>
-                                <div className="card-media" style={{ backgroundImage: `url(${internship.thumbnail || placeholder})` }}>
+                                <div className="card-media">
+                                    <img
+                                        src={internship.thumbnail || placeholder}
+                                        alt={internship.title}
+                                        onError={(e) => { e.target.src = placeholder; }}
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                                    />
                                     {isEnrolled && <div className="card-free-preview-badge" style={{ background: '#10b981', color: '#fff' }}>Enrolled</div>}
                                     <div className="card-tag" style={{ textTransform: 'capitalize' }}>{internship.domain}</div>
                                 </div>

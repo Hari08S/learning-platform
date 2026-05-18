@@ -121,7 +121,8 @@ body {
 
 /* HERO */
 .hero {
-  background: linear-gradient(135deg, #0F766E 0%, #065F46 100%);
+  background: #10B981;
+  /* Brighter Emerald from mockup */
   color: #FFFFFF;
   display: flex;
   align-items: center;
@@ -139,55 +140,61 @@ body {
 }
 
 .hero-title {
-  font-size: 3rem;
-  font-weight: 700;
+  font-size: 3.5rem;
+  font-weight: 800;
   margin: 1rem 0;
   color: #FFFFFF;
+  line-height: 1.1;
 }
 
 .hero-desc {
   max-width: 500px;
   opacity: 0.95;
-  margin-bottom: 1.5rem;
+  margin-bottom: 2rem;
   color: #F0FDF4;
+  font-size: 1.1rem;
 }
 
 /* Original hero-btns kept, but we add a modifier class for centering */
 .hero-btns {
   display: flex;
-  gap: 1rem;
-  margin-bottom: 2rem;
+  gap: 1.25rem;
+  margin-bottom: 3rem;
   flex-wrap: wrap;
 }
 
 /* new: center variation for the Start Learning button */
 .hero-btns--center {
-  justify-content: center;
+  justify-content: flex-start;
+  /* Alignment matched to mockup */
   align-items: center;
 }
 
 /* button styles */
 .btn {
-  padding: 12px 24px;
+  padding: 14px 28px;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
-  font-weight: 600;
-  transition: transform 0.2s ease, background-color 0.2s ease;
+  font-weight: 700;
+  transition: all 0.2s ease;
 }
 
 .primary {
-  background: #065F46;
+  background: #6D28D9;
+  /* Purple from mockup */
   color: white;
+  box-shadow: 0 4px 14px rgba(109, 40, 217, 0.3);
 }
 
 .primary:hover {
-  background: #047857;
+  background: #5B21B6;
   transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(109, 40, 217, 0.4);
 }
 
 .outline {
-  border: 2px solid rgba(255, 255, 255, 0.7);
+  border: 2px solid rgba(255, 255, 255, 0.8);
   background: transparent;
   color: #FFFFFF;
 }
@@ -196,31 +203,32 @@ body {
   background: rgba(255, 255, 255, 0.1);
 }
 
-.small {
-  font-size: 0.8rem;
-  padding: 6px 12px;
-}
-
 .stats {
   display: flex;
   gap: 1.5rem;
 }
 
 .stat {
-  background: rgba(255, 255, 255, 0.1);
-  padding: 1rem;
-  border-radius: 12px;
-  text-align: center;
+  background: rgba(255, 255, 255, 0.2);
+  /* Frames color from mockup */
+  padding: 1.25rem 1.5rem;
+  border-radius: 14px;
+  text-align: left;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  min-width: 140px;
 }
 
 .num {
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: #A7F3D0;
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #4F46E5;
+  /* Indigo numbers from mockup */
+  display: block;
+  margin-bottom: 4px;
 }
 
 .rate {
-  color: #FBBF24;
+  color: #4F46E5;
 }
 
 .hero-visual {

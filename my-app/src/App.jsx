@@ -26,6 +26,11 @@ import useStore from './store';
 import LessonPage from './components/LessonPage.jsx';
 import QuizPage from './components/QuizPage.jsx';
 
+// NEW COMPONENTS
+import Leaderboard from './components/Leaderboard.jsx';
+import InterviewPrep from './components/InterviewPrep.jsx';
+import PortfolioPage from './components/PortfolioPage.jsx';
+
 // Security and Reliability
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
@@ -71,7 +76,39 @@ function App() {
     };
   }, []);
 
-  const { isLoggedIn: storeIsLoggedIn, setInternshipEnrollments } = useStore();
+  const storeIsLoggedIn = useStore(state => state.isLoggedIn);
+  const setInternshipEnrollments = useStore(state => state.setInternshipEnrollments);
+  const addXP = useStore(state => state.addXP);
+  const setXPData = useStore(state => state.setXPData);
+
+  // Load XP when logging in
+  useEffect(() => {
+    if (loggedIn) {
+      const loadXP = async () => {
+        try {
+          const token = localStorage.getItem('token');
+          if (!token) return;
+          const res = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:4000'}/api/me/xp`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setXPData(data.xp);
+          }
+        } catch (err) { }
+      };
+
+      // Handle daily login XP
+      const today = new Date().toISOString().slice(0, 10);
+      const lastLogin = localStorage.getItem('lastLoginDate');
+      if (lastLogin !== today) {
+        localStorage.setItem('lastLoginDate', today);
+        addXP(5, "Daily Login Bonus");
+      }
+
+      loadXP();
+    }
+  }, [loggedIn, setXPData, addXP]);
 
   // Restore login state
   useEffect(() => {
@@ -120,6 +157,8 @@ function App() {
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/pricing" element={<Pricing />} />
 
+            <Route path="/portfolio/:username" element={<PortfolioPage />} />
+
             {/* USER PORTAL ROUTES */}
             <Route element={<ProtectedRoute requireAdmin={false} />}>
               <Route path="/dashboard" element={<Dashboard />} />
@@ -134,6 +173,8 @@ function App() {
 
               <Route path="/courses/:courseId/module/:moduleId" element={<LessonPage />} />
               <Route path="/courses/:courseId/quiz" element={<QuizPage />} />
+              <Route path="/leaderboard" element={<Leaderboard />} />
+              <Route path="/interview-prep" element={<InterviewPrep />} />
             </Route>
 
             {/* ADMIN ROUTES */}

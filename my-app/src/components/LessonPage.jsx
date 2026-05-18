@@ -13,6 +13,12 @@ export default function LessonPage() {
   const [marking, setMarking] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
 
+  // Notes state
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [notes, setNotes] = useState([]);
+  const [newNoteText, setNewNoteText] = useState('');
+  const [newNoteTime, setNewNoteTime] = useState('');
+
   useEffect(() => {
     let mounted = true;
     async function load() {
@@ -42,6 +48,23 @@ export default function LessonPage() {
     }
     load();
     return () => { mounted = false; };
+  }, [courseId, moduleId]);
+
+  // Fetch Notes
+  const fetchNotes = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      const res = await fetch(`${API_BASE}/api/me/notes/${courseId}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) {
+        const data = await res.json();
+        setNotes(data.filter(n => String(n.lessonId) === String(moduleId)));
+      }
+    } catch (err) { }
+  };
+
+  useEffect(() => {
+    fetchNotes();
   }, [courseId, moduleId]);
 
   useEffect(() => {
@@ -124,36 +147,144 @@ export default function LessonPage() {
 
   const isQuiz = module.type === 'quiz';
 
+  const handleAddNote = async () => {
+    if (!newNoteText.trim()) return;
+    const token = localStorage.getItem('token');
+    if (!token) return alert('Please sign in to add a note.');
+
+    // Parse timestamp like "1:20" to seconds
+    let timestamp = 0;
+    if (newNoteTime) {
+      const parts = newNoteTime.split(':').map(Number);
+      if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        timestamp = parts[0] * 60 + parts[1];
+      } else if (parts.length === 1 && !isNaN(parts[0])) {
+        timestamp = parts[0];
+      }
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/api/me/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          courseId,
+          lessonId: moduleId,
+          timestamp,
+          text: newNoteText
+        })
+      });
+      if (res.ok) {
+        setNewNoteText('');
+        setNewNoteTime('');
+        fetchNotes();
+        import('react-hot-toast').then(mod => mod.toast.success("Note saved!"));
+      } else {
+        alert('Failed to save note');
+      }
+    } catch (e) {
+      alert('Error saving note');
+    }
+  };
+
+  const handleDeleteNote = async (noteId) => {
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`${API_BASE}/api/me/notes/${noteId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        fetchNotes();
+        import('react-hot-toast').then(mod => mod.toast.success("Note deleted"));
+      }
+    } catch (e) { }
+  };
+
+  const formatTime = (secs) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
   return (
     <div className="container" style={{ padding: 28 }}>
       <button className="btn outline" onClick={() => navigate(`/courses/${courseId}`)} style={{ marginBottom: 18 }}>← Back to Course</button>
 
-      <h1>{module.title}</h1>
-      <div style={{ color: '#64748B', marginBottom: 12 }}>{module.mins || '—'} min</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <div>
+          <h1 style={{ margin: 0 }}>{module.title}</h1>
+          <div style={{ color: '#64748B', marginTop: 8 }}>{module.mins || '—'} min</div>
+        </div>
+        <button className="btn outline" onClick={() => setNotesOpen(!notesOpen)}>
+          {notesOpen ? 'Hide Notes' : '📝 My Notes'}
+        </button>
+      </div>
 
-      <div style={{ background: '#fff', padding: 22, borderRadius: 12, boxShadow: '0 6px 20px rgba(2,6,23,0.04)' }}>
-        {module.type === 'video' && module.videoUrl && (
-          <div style={{ marginBottom: 24 }}>
-            <iframe
-              width="100%"
-              height="500"
-              src={module.videoUrl}
-              title={module.title}
-              frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              style={{ borderRadius: 8, background: '#000' }}
-            ></iframe>
+      <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
+        <div style={{ flex: 1, background: '#fff', padding: 22, borderRadius: 12, boxShadow: '0 6px 20px rgba(2,6,23,0.04)' }}>
+          {module.type === 'video' && module.videoUrl && (
+            <div style={{ marginBottom: 24 }}>
+              <iframe
+                width="100%"
+                height="500"
+                src={module.videoUrl}
+                title={module.title}
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                style={{ borderRadius: 8, background: '#000' }}
+              ></iframe>
+            </div>
+          )}
+
+          {module.content ? (
+            <div style={{ lineHeight: 1.6, color: '#334155', fontSize: '1.05rem', whiteSpace: 'pre-line' }} dangerouslySetInnerHTML={{ __html: module.content }} />
+          ) : module.body ? (
+            <div dangerouslySetInnerHTML={{ __html: module.body }} />
+          ) : !module.videoUrl ? (
+            <p style={{ color: '#475569' }}>No content provided for this lesson.</p>
+          ) : null}
+        </div>
+
+        {notesOpen && (
+          <div style={{ width: '350px', background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: '12px', padding: '20px', display: 'flex', flexDirection: 'column' }}>
+            <h3 style={{ margin: '0 0 16px', color: 'var(--upwise-dark)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              📝 My Notes
+            </h3>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+              <input
+                type="text"
+                placeholder="Time (e.g. 1:20)"
+                value={newNoteTime}
+                onChange={e => setNewNoteTime(e.target.value)}
+                style={{ width: '80px', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              />
+              <textarea
+                placeholder="Add a note..."
+                value={newNoteText}
+                onChange={e => setNewNoteText(e.target.value)}
+                style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', resize: 'vertical', minHeight: '40px' }}
+              />
+            </div>
+            <button className="btn primary small" onClick={handleAddNote} style={{ marginBottom: '24px' }}>Save Note</button>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', maxHeight: '400px' }}>
+              {notes.length === 0 ? <p style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>No notes for this lesson yet.</p> : notes.map(n => (
+                <div key={n._id} style={{ background: '#fff', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', position: 'relative' }}>
+                  <button
+                    onClick={() => handleDeleteNote(n._id)}
+                    style={{ position: 'absolute', top: '8px', right: '8px', background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}
+                  >✕</button>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--accent)', marginBottom: '4px' }}>
+                    {formatTime(n.timestamp)}
+                  </div>
+                  <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--upwise-dark)', whiteSpace: 'pre-line' }}>{n.text}</p>
+                </div>
+              ))}
+            </div>
           </div>
         )}
-
-        {module.content ? (
-          <div style={{ lineHeight: 1.6, color: '#334155', fontSize: '1.05rem', whiteSpace: 'pre-line' }} dangerouslySetInnerHTML={{ __html: module.content }} />
-        ) : module.body ? (
-          <div dangerouslySetInnerHTML={{ __html: module.body }} />
-        ) : !module.videoUrl ? (
-          <p style={{ color: '#475569' }}>No content provided for this lesson.</p>
-        ) : null}
       </div>
 
       <div style={{ display: 'flex', gap: 12, marginTop: 18 }}>

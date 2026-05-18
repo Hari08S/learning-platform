@@ -25,6 +25,13 @@ export default function CourseDetail() {
   const [quizAvailableOnServer, setQuizAvailableOnServer] = useState(false);
   const [activeNoteIndex, setActiveNoteIndex] = useState(null);
 
+  // Reviews State
+  const [reviews, setReviews] = useState([]);
+  const [avgRating, setAvgRating] = useState(0);
+  const [myReviewRating, setMyReviewRating] = useState(5);
+  const [myReviewComment, setMyReviewComment] = useState('');
+  const [reviewLoading, setReviewLoading] = useState(false);
+
   const { logActivity } = useActivity();
   const { getNotes } = useNotes();
   const [courseNotes, setCourseNotes] = useState([]);
@@ -181,6 +188,25 @@ export default function CourseDetail() {
     return () => { mounted = false; };
   }, [id, course]);
 
+  // Fetch Reviews
+  useEffect(() => {
+    let mounted = true;
+    async function fetchReviews() {
+      try {
+        const res = await fetch(`${API_BASE}/api/courses/${courseIdResolved()}/reviews`);
+        if (res.ok) {
+          const data = await res.json();
+          if (mounted) {
+            setReviews(data.reviews || []);
+            setAvgRating(data.avgRating || 0);
+          }
+        }
+      } catch (err) { }
+    }
+    if (courseIdResolved() && courseIdResolved() !== 'undefined') fetchReviews();
+    return () => { mounted = false; };
+  }, [id, course]);
+
   // NEW: fetch notes
   useEffect(() => {
     let mounted = true;
@@ -200,6 +226,16 @@ export default function CourseDetail() {
     </div>
   );
 
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
   const handleBuy = async () => {
     setErrMsg('');
     if (buttonState === 'processing') return;
@@ -213,37 +249,87 @@ export default function CourseDetail() {
     }
 
     try {
-      const body = { courseId: course._id || course.id || id };
-      const res = await fetch(`${API_BASE}/api/purchases`, {
+      const res = await fetch(`${API_BASE}/api/payment/create-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(body)
+        body: JSON.stringify({ courseId: courseIdResolved() })
       });
 
-      const ct = res.headers.get('content-type') || '';
-      if (!res.ok) {
-        if (ct.includes('application/json')) {
-          const j = await res.json();
-          throw new Error(j.message || `Server ${res.status}`);
-        } else {
-          const txt = await res.text();
-          throw new Error(txt || `Server ${res.status}`);
-        }
+      const orderData = await res.json();
+      if (!res.ok) throw new Error(orderData.message || 'Failed to create order');
+
+      if (orderData.free) {
+        // Fallback to old purchase logic if free
+        await fetch(`${API_BASE}/api/purchases`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ courseId: courseIdResolved() })
+        });
+        completePurchaseUI();
+        return;
       }
 
-      setButtonState('purchased');
-      setPurchased(true);
-      window.dispatchEvent(new Event('purchases.updated'));
-      window.dispatchEvent(new Event('user.updated'));
-      setTimeout(() => navigate('/dashboard'), 900);
-      return;
+      const isScriptLoaded = await loadRazorpayScript();
+      if (!isScriptLoaded) throw new Error('Razorpay SDK failed to load');
+
+      const options = {
+        key: orderData.key,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: 'Upwise Learning',
+        description: `Purchase ${course.title}`,
+        order_id: orderData.orderId,
+        handler: async function (response) {
+          setButtonState('processing');
+          try {
+            const verifyRes = await fetch(`${API_BASE}/api/payment/verify`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                courseId: courseIdResolved()
+              })
+            });
+            if (verifyRes.ok) {
+              import('react-hot-toast').then(mod => mod.toast.success("Payment Successful! 🎉"));
+              completePurchaseUI();
+            } else {
+              throw new Error('Payment verification failed');
+            }
+          } catch (e) {
+            setErrMsg(e.message);
+            setButtonState('idle');
+          }
+        },
+        prefill: {
+          name: userObj.name || '',
+          email: userObj.email || ''
+        },
+        theme: { color: '#065F46' }
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', function (response) {
+        setErrMsg('Payment failed or closed');
+        setButtonState('idle');
+      });
+      rzp.open();
+
     } catch (err) {
-      console.error('Purchase failed', err);
+      console.error('Purchase initiation failed', err);
       setErrMsg(err.message || 'Purchase failed');
-      setButtonState('error');
-      setTimeout(() => setButtonState('idle'), 2000);
-      return;
+      setButtonState('idle');
     }
+  };
+
+  const completePurchaseUI = () => {
+    setButtonState('purchased');
+    setPurchased(true);
+    window.dispatchEvent(new Event('purchases.updated'));
+    window.dispatchEvent(new Event('user.updated'));
+    setTimeout(() => navigate('/dashboard'), 900);
   };
 
   const handleCancel = async () => {
@@ -439,7 +525,78 @@ export default function CourseDetail() {
                       </button>
                     </div>
                   </div>
+                </div>
 
+                {/* STUDENT REVIEWS SECTION */}
+                <h2 style={{ marginTop: '40px', borderTop: '2px solid #e2e8f0', paddingTop: '24px' }}>Student Reviews</h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+                  <div style={{ fontSize: '48px', fontWeight: 'bold', color: 'var(--upwise-dark)' }}>{avgRating}</div>
+                  <div>
+                    <div style={{ color: '#F59E0B', fontSize: '20px' }}>{'★'.repeat(Math.round(avgRating))}</div>
+                    <div style={{ color: 'var(--muted)', fontSize: '14px' }}>Course Rating • {reviews.length} reviews</div>
+                  </div>
+                </div>
+
+                {userProgressForCourse && userProgressForCourse.percent >= 100 && (
+                  <div style={{ background: 'var(--bg-light)', padding: '20px', borderRadius: '12px', border: '1px solid var(--accent)', marginBottom: '32px' }}>
+                    <h4 style={{ margin: '0 0 12px', color: 'var(--upwise-dark)' }}>Write a Review</h4>
+                    <div style={{ display: 'flex', gap: '4px', marginBottom: '12px' }}>
+                      {[1, 2, 3, 4, 5].map(star => (
+                        <button
+                          key={star}
+                          onClick={() => setMyReviewRating(star)}
+                          style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: star <= myReviewRating ? '#F59E0B' : '#cbd5e1' }}
+                        >★</button>
+                      ))}
+                    </div>
+                    <textarea
+                      style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '12px', minHeight: '80px', fontFamily: 'inherit' }}
+                      placeholder="What did you think of the course?"
+                      value={myReviewComment}
+                      onChange={e => setMyReviewComment(e.target.value)}
+                    />
+                    <button
+                      className="btn primary small"
+                      disabled={reviewLoading}
+                      onClick={async () => {
+                        setReviewLoading(true);
+                        const token = localStorage.getItem('token');
+                        try {
+                          const r = await fetch(`${API_BASE}/api/courses/${courseIdResolved()}/reviews`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                            body: JSON.stringify({ rating: myReviewRating, comment: myReviewComment })
+                          });
+                          if (r.ok) {
+                            import('react-hot-toast').then(mod => mod.toast.success('Review posted!'));
+                            const p = await fetch(`${API_BASE}/api/courses/${courseIdResolved()}/reviews`);
+                            if (p.ok) {
+                              const pd = await p.json();
+                              setReviews(pd.reviews);
+                              setAvgRating(pd.avgRating);
+                            }
+                          }
+                        } finally { setReviewLoading(false); }
+                      }}
+                    >Submit Review</button>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {reviews.length === 0 ? <p style={{ color: 'var(--muted)' }}>No reviews yet.</p> : reviews.map(r => (
+                    <div key={r._id} style={{ padding: '16px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                        <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--upwise-mid)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
+                          {r.userAvatar || r.userName.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 'bold', color: 'var(--upwise-dark)' }}>{r.userName}</div>
+                          <div style={{ color: '#F59E0B', fontSize: '14px' }}>{'★'.repeat(r.rating)}</div>
+                        </div>
+                      </div>
+                      <p style={{ margin: 0, color: 'var(--muted)', lineHeight: '1.5' }}>{r.comment}</p>
+                    </div>
+                  ))}
                 </div>
               </>
             )}

@@ -94,8 +94,28 @@ router.get('/internships/:id/applicants', async (req, res) => {
     try {
         const applications = await InternshipApplication.find({ internshipId: req.params.id })
             .populate('userId', 'name email avatar')
-            .sort({ enrolledAt: -1 });
-        res.json({ applications });
+            .sort({ enrolledAt: -1 })
+            .lean();
+
+        // Fetch all submissions for this internship and group by applicationId
+        const allSubmissions = await InternshipSubmission.find({ internshipId: req.params.id })
+            .sort({ taskIndex: 1 })
+            .lean();
+
+        const subsByApp = {};
+        allSubmissions.forEach(sub => {
+            const appId = String(sub.applicationId);
+            if (!subsByApp[appId]) subsByApp[appId] = [];
+            subsByApp[appId].push(sub);
+        });
+
+        // Attach submissions to each application
+        const enriched = applications.map(app => ({
+            ...app,
+            submissions: subsByApp[String(app._id)] || []
+        }));
+
+        res.json({ applications: enriched });
     } catch (error) {
         res.status(500).json({ message: 'Server error' });
     }
@@ -131,6 +151,25 @@ router.patch('/submissions/:submissionId', async (req, res) => {
                 });
                 const progress = Math.round((approvedCount / internship.tasks.length) * 100);
                 application.progress = progress;
+
+                // Auto-complete when all tasks are approved (100%)
+                if (progress >= 100 && application.status !== 'completed') {
+                    application.status = 'completed';
+                    application.completedAt = new Date();
+
+                    // Auto-generate certificate
+                    let cert = await InternshipCertificate.findOne({ applicationId: application._id });
+                    if (!cert) {
+                        cert = new InternshipCertificate({
+                            userId: application.userId,
+                            internshipId: application.internshipId,
+                            applicationId: application._id
+                        });
+                        await cert.save();
+                        console.log(`✅ Auto-generated certificate for user ${application.userId} — internship ${internship.title}`);
+                    }
+                }
+
                 await application.save();
             }
         }

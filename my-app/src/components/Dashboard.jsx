@@ -11,6 +11,8 @@ import QuickActions from './QuickActions';
 import PurchaseHistoryModal from './PurchaseHistoryModal';
 import LearningHeatmap from './LearningHeatmap.jsx';
 import MyNotes from './MyNotes.jsx';
+import XPBar from './XPBar.jsx';
+import DailyChallenge from './DailyChallenge.jsx';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
 
@@ -418,6 +420,28 @@ const Dashboard = () => {
     } catch (err) { alert(err.message); }
   };
 
+  const handleCancelInternship = async (internshipId) => {
+    if (!window.confirm('Are you sure you want to withdraw from this internship? All your submissions will be deleted.')) return;
+    const token = localStorage.getItem('token');
+    if (!token) return alert('You must be signed in.');
+    try {
+      const res = await fetch(`${API_BASE}/api/user/internships/${internshipId}/withdraw`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const body = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setInternships(prev => prev.filter(app => {
+          const iId = app.internshipId?._id || app.internshipId;
+          return String(iId) !== String(internshipId);
+        }));
+        window.dispatchEvent(new Event('user.updated'));
+      } else {
+        alert(body.message || 'Could not withdraw from internship');
+      }
+    } catch (err) { alert(err.message); }
+  };
+
   const CourseCard = ({ c }) => {
     const rawProgress = c.progress || {};
     let percent = (typeof rawProgress.percent === 'number') ? rawProgress.percent : Number(rawProgress.percent || 0);
@@ -426,7 +450,7 @@ const Dashboard = () => {
     const tag = (c.raw && c.raw.tag) || 'Course';
     const level = (c.raw && c.raw.level) || 'All Levels';
     return (
-      <article className="course-card small-card" style={{ width: 320, marginBottom: 18 }}>
+      <article className="course-card small-card" style={{ marginBottom: 18 }}>
         <div className="card-media" style={{ height: 150, borderRadius: 8, overflow: 'hidden', backgroundColor: '#f3f4f6', position: 'relative' }}>
           <img src={thumb} alt={c.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           <div className="card-tag" style={{ position: 'absolute', top: 10, bottom: 'auto', left: 10, right: 'auto', background: 'rgba(0,0,0,0.6)', color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 12, boxShadow: 'none' }}>{tag}</div>
@@ -475,6 +499,9 @@ const Dashboard = () => {
           <span style={{ fontSize: 18 }}>💡</span> Tip of the Day: {dailyQuotes[qIndex]}
         </div>
       </div>
+
+      <XPBar />
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginTop: 18 }}>
         <div style={{ background: 'var(--dash-c1)', borderRadius: 12, padding: '18px 20px' }}>
           <div style={{ fontSize: 14, fontWeight: 700 }}>Active Courses</div>
@@ -514,32 +541,55 @@ const Dashboard = () => {
         </div>
       )}
 
-      <div style={{ marginTop: 28 }}>
-        <h2 style={{ marginBottom: 12 }}>Your Courses</h2>
-        {loadingPurchases ? <div>Loading...</div> : purchasedCourses.length === 0 ? <div>No courses yet.</div> : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 18 }}>
-            {purchasedCourses.map((c) => <CourseCard key={String(c.courseId)} c={c} />)}
+      <div style={{ marginTop: 28, display: 'grid', gridTemplateColumns: '1fr 340px', gap: '24px', alignItems: 'flex-start' }}>
+
+        {/* Main Column */}
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <h2 style={{ margin: 0, color: 'var(--upwise-dark)' }}>Your Courses</h2>
+            <button className="btn outline" onClick={() => setPurchasesOpen(true)} style={{ padding: '8px 16px', fontSize: 13 }}>📋 Purchase History</button>
           </div>
-        )}
+          {loadingPurchases ? <div>Loading...</div> : purchasedCourses.length === 0 ? (
+            <div style={{ padding: '40px', textAlign: 'center', background: 'var(--bg-light)', borderRadius: '12px', border: '1px solid var(--accent)' }}>
+              <div style={{ fontSize: '48px', marginBottom: '16px' }}>🚀</div>
+              <p style={{ color: 'var(--upwise-dark)', fontWeight: 'bold', fontSize: '18px' }}>Your learning journey awaits!</p>
+              <button className="btn primary" onClick={() => nav('/courses')} style={{ marginTop: '16px' }}>Start Learning →</button>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 18 }}>
+              {purchasedCourses.map((c) => <CourseCard key={String(c.courseId)} c={c} />)}
+            </div>
+          )}
+        </div>
+
+        {/* Sidebar Column */}
+        <div>
+          <DailyChallenge />
+        </div>
       </div>
 
-      <div style={{ marginTop: 28 }}>
-        <h2 style={{ marginBottom: 12 }}>Your Internships</h2>
-        {loadingInternships ? <div>Loading internships...</div> : internships.length === 0 ? <div>No active internships.</div> : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 18 }}>
+      <div style={{ marginTop: 32 }}>
+        <h2 style={{ marginBottom: 16, color: 'var(--upwise-dark)' }}>Your Internships</h2>
+        {loadingInternships ? <div>Loading internships...</div> : internships.length === 0 ? (
+          <div style={{ padding: '30px', textAlign: 'center', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+            <p style={{ color: 'var(--muted)', fontWeight: 600 }}>Get real-world experience. Apply for an internship today!</p>
+            <button className="btn outline" onClick={() => nav('/internships')} style={{ marginTop: '12px' }}>Browse Internships</button>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 18 }}>
             {internships.map((app) => {
               const i = app.internshipId;
               if (!i) return null;
               const thumb = i.thumbnail || '/logo.png';
-              // Approximate progress from number of completed tasks (or simple fallback)
               const pct = applicationProgress => typeof applicationProgress === 'number' ? applicationProgress : 0;
+              const isCompleted = app.status === 'completed';
 
               return (
-                <article className="course-card small-card" key={app._id} style={{ width: 320, marginBottom: 18 }}>
+                <article className="course-card small-card" key={app._id} style={{ marginBottom: 18 }}>
                   <div className="card-media" style={{ height: 150, borderRadius: 8, overflow: 'hidden', backgroundColor: '#f3f4f6', position: 'relative' }}>
                     <img src={thumb} alt={i.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    <div className="card-tag" style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(0,0,0,0.6)', color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 12, textTransform: 'capitalize' }}>{i.domain}</div>
-                    <div className="card-tag" style={{ position: 'absolute', bottom: 10, right: 10, background: 'rgba(16, 185, 129, 0.9)', color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 12 }}>{app.status}</div>
+                    <div className="card-tag" style={{ position: 'absolute', top: 10, bottom: 'auto', left: 10, right: 'auto', background: 'rgba(0,0,0,0.6)', color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 12, textTransform: 'capitalize', boxShadow: 'none' }}>{i.domain}</div>
+                    <div className="card-tag" style={{ position: 'absolute', bottom: 10, top: 'auto', right: 10, left: 'auto', background: 'rgba(16, 185, 129, 0.9)', color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 12, boxShadow: 'none' }}>{app.status}</div>
                   </div>
                   <div className="card-body" style={{ paddingTop: 12 }}>
                     <h3 className="card-title" style={{ marginBottom: 6 }}>{i.title}</h3>
@@ -551,7 +601,16 @@ const Dashboard = () => {
                       <div style={{ marginTop: 8, color: '#6b7280', fontSize: 13 }}>{pct(app.progress)}% completed</div>
                     </div>
                     <div className="card-actions" style={{ marginTop: 12, display: 'flex', gap: 8 }}>
-                      <button className="btn primary" onClick={() => nav(`/internships/${i._id}/portal`)} style={{ flex: 1, whiteSpace: 'nowrap', background: '#10b981' }}>Continue</button>
+                      {isCompleted ? (
+                        <>
+                          <button className="btn primary" onClick={() => nav(`/internships/${i._id}/portal`)} style={{ flex: 1, whiteSpace: 'nowrap', background: '#7c3aed' }}>🎓 View Certificate</button>
+                        </>
+                      ) : (
+                        <>
+                          <button className="btn primary" onClick={() => nav(`/internships/${i._id}/portal`)} style={{ flex: 1, whiteSpace: 'nowrap', background: '#10b981' }}>Continue</button>
+                          <button className="btn outline" onClick={() => handleCancelInternship(i._id)} style={{ padding: '8px 14px' }}>Withdraw</button>
+                        </>
+                      )}
                     </div>
                   </div>
                 </article>
@@ -574,6 +633,7 @@ const Dashboard = () => {
 
         <LearningTimeline events={timeline} />
       </div>
+      <PurchaseHistoryModal open={purchasesOpen} onClose={() => setPurchasesOpen(false)} />
     </div>
   );
 };

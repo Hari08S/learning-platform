@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { FiMenu, FiX, FiBell, FiSettings, FiClock, FiShield, FiLogOut, FiUser } from "react-icons/fi";
 import { toast } from "react-hot-toast";
 import PurchaseHistoryModal from "./PurchaseHistoryModal.jsx";
+import NotificationBell from "./NotificationBell.jsx";
 
 const Navbar = ({ loggedIn, setLoggedIn }) => {
   const nav = useNavigate();
@@ -11,13 +12,6 @@ const Navbar = ({ loggedIn, setLoggedIn }) => {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [notifsOpen, setNotifsOpen] = useState(false);
-
-
-  const [notifications, setNotifications] = useState([
-    { id: 1, text: "New course: Advanced React patterns available!", read: false },
-    { id: 2, text: "Keep it up! 3 day streak 🔥", read: false },
-    { id: 3, text: "Achievement unlocked: First Login", read: false }
-  ]);
 
 
   const [user, setUser] = useState(() => {
@@ -50,9 +44,6 @@ const Navbar = ({ loggedIn, setLoggedIn }) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
         setMenuOpen(false);
       }
-      if (notifRef.current && !notifRef.current.contains(e.target)) {
-        setNotifsOpen(false);
-      }
     };
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
@@ -75,11 +66,7 @@ const Navbar = ({ loggedIn, setLoggedIn }) => {
     nav("/");
   };
 
-  const markRead = (id) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-  };
 
-  const unreadCount = notifications.filter(n => !n.read).length;
 
   const isAdmin = user?.role === "admin";
   const isUser = user?.role === "user";
@@ -88,9 +75,22 @@ const Navbar = ({ loggedIn, setLoggedIn }) => {
     return location.pathname === path ? "link active" : "link";
   };
 
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   return (
     <>
-      <nav className="nav">
+      <nav className="nav" style={{
+        boxShadow: scrolled ? '0 4px 12px rgba(0,0,0,0.05)' : 'none',
+        position: 'sticky', top: 0, zIndex: 50, transition: 'box-shadow 0.3s'
+      }}>
         <div className="nav-box container">
           {/* LOGO */}
           <div
@@ -138,6 +138,8 @@ const Navbar = ({ loggedIn, setLoggedIn }) => {
                 <li><Link className={getLinkClass("/courses")} to="/courses">Courses</Link></li>
                 <li><Link className={getLinkClass("/internships")} to="/internships">Internships</Link></li>
                 <li><Link className={getLinkClass("/certificates")} to="/certificates">Certificates</Link></li>
+                <li><Link className={getLinkClass("/interview-prep")} to="/interview-prep">Interview Prep</Link></li>
+                <li><Link className={getLinkClass("/leaderboard")} to="/leaderboard">Leaderboard</Link></li>
               </>
             )}
 
@@ -155,50 +157,8 @@ const Navbar = ({ loggedIn, setLoggedIn }) => {
 
             {/* NOTIFICATIONS */}
             {loggedIn && (
-              <li style={{ position: "relative" }} ref={notifRef}>
-                <button
-                  onClick={() => setNotifsOpen(!notifsOpen)}
-                  style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 20, color: '#fff', position: 'relative', display: 'flex', marginLeft: 10, padding: 8 }}
-                  aria-label={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`}
-                >
-                  <FiBell />
-                  {unreadCount > 0 && (
-                    <span style={{ position: 'absolute', top: 2, right: 2, background: '#ef4444', color: '#fff', fontSize: '0.65rem', width: 16, height: 16, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
-                      {unreadCount}
-                    </span>
-                  )}
-                </button>
-                {notifsOpen && (
-                  <div className="user-menu" style={{ width: 300, right: 0, padding: '10px 0' }}>
-                    <div style={{ padding: '0 15px 10px', fontWeight: 'bold', borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
-                      Notifications
-                    </div>
-                    {notifications.length === 0 ? (
-                      <div style={{ padding: '15px', textAlign: 'center', color: 'var(--muted)', fontSize: '0.9rem' }}>No notifications</div>
-                    ) : (
-                      notifications.map(n => (
-                        <div
-                          key={n.id}
-                          onClick={() => markRead(n.id)}
-                          style={{
-                            padding: '12px 15px',
-                            borderBottom: '1px solid var(--border)',
-                            cursor: 'pointer',
-                            background: n.read ? 'transparent' : 'rgba(16, 185, 129, 0.05)',
-                            display: 'flex',
-                            gap: '10px',
-                            color: 'var(--text)'
-                          }}
-                        >
-                          {!n.read && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', flexShrink: 0, marginTop: 6 }} />}
-                          <span style={{ fontSize: '0.85rem', color: n.read ? 'var(--muted)' : 'var(--text)', fontWeight: n.read ? 'normal' : '600' }}>
-                            {n.text}
-                          </span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
+              <li style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                <NotificationBell />
               </li>
             )}
 
@@ -233,6 +193,18 @@ const Navbar = ({ loggedIn, setLoggedIn }) => {
 
                     {isUser && (
                       <>
+                        <Link
+                          to={`/portfolio/${user?.email ? user.email.split('@')[0] : 'user'}`}
+                          className="user-menu-item"
+                          onClick={() => { setMenuOpen(false); setMobileNavOpen(false); }}
+                        >
+                          <FiUser className="user-menu-icon" />
+                          <div>
+                            <div className="user-menu-item-label">My Portfolio</div>
+                            <div className="user-menu-item-desc">Your public profile</div>
+                          </div>
+                        </Link>
+
                         <Link
                           to="/settings"
                           className="user-menu-item"

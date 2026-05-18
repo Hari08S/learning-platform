@@ -20,51 +20,73 @@ export default function PurchaseHistoryModal({ open, onClose }) {
         const token = localStorage.getItem('token');
         if (!token) throw new Error('Not authenticated');
 
-        const res = await fetch(`${API_BASE}/api/me/purchases`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        // Fetch both course purchases AND internship enrollments
+        const [purchaseRes, internshipRes] = await Promise.all([
+          fetch(`${API_BASE}/api/me/purchases`, {
+            headers: { Authorization: `Bearer ${token}` }
+          }),
+          fetch(`${API_BASE}/api/user/internships/my`, {
+            headers: { Authorization: `Bearer ${token}` }
+          }).catch(() => null)
+        ]);
 
-        const ct = res.headers.get('content-type') || '';
-        if (ct.includes('text/html')) {
-          throw new Error(
-            'Server returned HTML for /api/me/purchases — API may be misconfigured.'
-          );
+        // Process course purchases
+        let coursePurchases = [];
+        if (purchaseRes.ok) {
+          const ct = purchaseRes.headers.get('content-type') || '';
+          if (!ct.includes('text/html')) {
+            const js = await purchaseRes.json();
+            const rawPurch = Array.isArray(js.purchases) ? js.purchases : [];
+            coursePurchases = rawPurch
+              .map((p, idx) => {
+                const courseId = p.courseId ? String(p.courseId) : '';
+                const baseId = p.purchaseId || p._id || courseId || `idx-${idx}`;
+                return {
+                  purchaseId: String(baseId),
+                  courseId,
+                  title: (p.title || '').trim() || 'Course',
+                  author: p.author || '',
+                  img: p.img || '/logo.png',
+                  price: p.price,
+                  status: p.status || 'active',
+                  purchasedAt: p.purchasedAt || null,
+                  cancelledAt: p.cancelledAt || null,
+                  type: 'course'
+                };
+              })
+              .filter(p => p.courseId);
+          }
         }
 
-        if (!res.ok) {
-          const json = ct.includes('application/json') ? await res.json() : null;
-          throw new Error((json && json.message) || `Server ${res.status}`);
+        // Process internship enrollments
+        let internshipPurchases = [];
+        if (internshipRes && internshipRes.ok) {
+          const intJson = await internshipRes.json();
+          const apps = Array.isArray(intJson.applications) ? intJson.applications : [];
+          internshipPurchases = apps
+            .map((app) => {
+              const i = app.internshipId;
+              if (!i) return null;
+              return {
+                purchaseId: app._id || `int-${i._id}`,
+                courseId: i._id ? String(i._id) : '',
+                title: i.title || 'Internship',
+                author: i.company || 'Upwise',
+                img: i.thumbnail || '/logo.png',
+                price: app.amount || 0,
+                status: app.status || 'active',
+                purchasedAt: app.enrolledAt || app.createdAt || null,
+                cancelledAt: null,
+                type: 'internship'
+              };
+            })
+            .filter(Boolean);
         }
 
-        const js = await res.json();
-        console.log('Purchase history API result:', js); // DEBUG
-
-        const rawPurch = Array.isArray(js.purchases) ? js.purchases : [];
-
-        const normalized = rawPurch
-          .map((p, idx) => {
-            const courseId = p.courseId ? String(p.courseId) : '';
-            // Always generate some id so we don't accidentally drop items
-            const baseId = p.purchaseId || p._id || courseId || `idx-${idx}`;
-            const purchaseId = String(baseId);
-
-            return {
-              purchaseId,
-              courseId,
-              title: (p.title || '').trim() || 'Course',
-              author: p.author || '',
-              img: p.img || '/logo.png',
-              price: p.price,
-              status: p.status || 'active',
-              purchasedAt: p.purchasedAt || null,
-              cancelledAt: p.cancelledAt || null
-            };
-          })
-          // only require courseId to be present; allow auto-generated purchaseId + default title
-          .filter(p => p.courseId);
+        const allItems = [...coursePurchases, ...internshipPurchases];
 
         if (!mounted) return;
-        setPurchases(normalized);
+        setPurchases(allItems);
       } catch (e) {
         console.error('PurchaseHistory load failed', e);
         if (!mounted) return;
@@ -209,7 +231,7 @@ export default function PurchaseHistoryModal({ open, onClose }) {
             </div>
           ) : (
             <div style={{ display: 'grid', gap: 12 }}>
-              {purchases.map((p) => (
+                {purchases.map((p) => (
                 <div
                   key={p.purchaseId}
                   style={{
@@ -227,10 +249,19 @@ export default function PurchaseHistoryModal({ open, onClose }) {
                     style={{ width: 160, height: 90, objectFit: 'cover', borderRadius: 6 }}
                   />
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700 }}>{p.title}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontWeight: 700 }}>{p.title}</span>
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10,
+                        background: p.type === 'internship' ? '#ECFDF5' : '#EEF2FF',
+                        color: p.type === 'internship' ? '#065F46' : '#4338CA'
+                      }}>
+                        {p.type === 'internship' ? '🎓 Internship' : '📚 Course'}
+                      </span>
+                    </div>
                     <div style={{ color: '#6b7280', marginTop: 4 }}>{p.author}</div>
                     <div style={{ marginTop: 8, fontSize: 13, color: '#374151' }}>
-                      Price: ₹{p.price || '—'} • Purchased:{' '}
+                      {p.price > 0 ? `Price: ₹${p.price}` : 'Free'} • Enrolled:{' '}
                       {p.purchasedAt ? new Date(p.purchasedAt).toLocaleString() : '—'} • Status:{' '}
                       <strong>{p.status}</strong>
                     </div>
@@ -240,12 +271,12 @@ export default function PurchaseHistoryModal({ open, onClose }) {
                     <button
                       className="btn outline small"
                       onClick={() => {
-                        const invoiceText = `INVOICE\n\nCourse: ${p.title}\nAuthor: ${p.author}\nPrice: rs ${p.price}\nDate: ${p.purchasedAt ? new Date(p.purchasedAt).toLocaleString() : 'N/A'}\nStatus: ${p.status}\n\nThank you for learning with UPWISE!`;
+                        const invoiceText = `INVOICE\n\n${p.type === 'internship' ? 'Internship' : 'Course'}: ${p.title}\n${p.type === 'internship' ? 'Company' : 'Author'}: ${p.author}\nPrice: Rs ${p.price || 0}\nDate: ${p.purchasedAt ? new Date(p.purchasedAt).toLocaleString() : 'N/A'}\nStatus: ${p.status}\n\nThank you for learning with UPWISE!`;
                         const blob = new Blob([invoiceText], { type: 'text/plain' });
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement('a');
                         a.href = url;
-                        a.download = `Invoice-${p.title.replace(/\\s+/g, '-')}.txt`;
+                        a.download = `Invoice-${p.title.replace(/\s+/g, '-')}.txt`;
                         a.click();
                         URL.revokeObjectURL(url);
                       }}
@@ -253,29 +284,31 @@ export default function PurchaseHistoryModal({ open, onClose }) {
                     >
                       📄 Invoice
                     </button>
-                    {p.status === 'active' ? (
-                      <button
-                        className="btn outline small"
-                        style={{ color: '#ef4444', borderColor: '#ef4444' }}
-                        onClick={() => doCancel(p.purchaseId)}
-                      >
-                        Cancel
-                      </button>
-                    ) : (
-                      <button
-                        className="btn primary small"
-                        onClick={() => doRestore(p.purchaseId)}
-                      >
-                        Restore
-                      </button>
+                    {p.type !== 'internship' && (
+                      p.status === 'active' ? (
+                        <button
+                          className="btn outline small"
+                          style={{ color: '#ef4444', borderColor: '#ef4444' }}
+                          onClick={() => doCancel(p.purchaseId)}
+                        >
+                          Cancel
+                        </button>
+                      ) : (
+                        <button
+                          className="btn primary small"
+                          onClick={() => doRestore(p.purchaseId)}
+                        >
+                          Restore
+                        </button>
+                      )
                     )}
                     <Link
                       className="btn small"
-                      to={`/courses/${p.courseId}`}
+                      to={p.type === 'internship' ? `/internships/${p.courseId}` : `/courses/${p.courseId}`}
                       onClick={onClose}
                       style={{ textDecoration: 'none', textAlign: 'center', background: 'var(--border)', color: 'var(--text)' }}
                     >
-                      Open Course
+                      {p.type === 'internship' ? 'Open Internship' : 'Open Course'}
                     </Link>
                   </div>
                 </div>

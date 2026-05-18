@@ -26,6 +26,7 @@ export default function Courses() {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('All Categories');
   const [level, setLevel] = useState('All Levels');
+  const [priceType, setPriceType] = useState('All');
   const [sortBy, setSortBy] = useState('Most Popular');
 
   const [courses, setCourses] = useState([]);
@@ -112,7 +113,7 @@ export default function Courses() {
   // reset pagination when filters change
   useEffect(() => {
     setPage(1);
-  }, [query, category, level, sortBy]);
+  }, [query, category, level, priceType, sortBy]);
 
   const filtered = useMemo(() => {
     const q = (query || '').trim().toLowerCase();
@@ -131,6 +132,11 @@ export default function Courses() {
       }
       if (level !== 'All Levels') {
         if (!((c.level || '').toString().toLowerCase().includes(level.toLowerCase()))) return false;
+      }
+      if (priceType !== 'All') {
+        const p = parseFloat(c.price) || 0;
+        if (priceType === 'Free' && p > 0) return false;
+        if (priceType === 'Paid' && p === 0) return false;
       }
       return true;
     });
@@ -155,7 +161,7 @@ export default function Courses() {
     });
 
     return result;
-  }, [query, category, level, sortBy, courses]);
+  }, [query, category, level, priceType, sortBy, courses]);
 
   const displayedCourses = filtered.slice(0, page * itemsPerPage);
 
@@ -185,6 +191,13 @@ export default function Courses() {
                   {levels.map((l) => (
                     <option key={l} value={l}>{l}</option>
                   ))}
+                </select>
+              </div>
+              <div className="filter-item">
+                <select className="filter-select" value={priceType} onChange={(e) => setPriceType(e.target.value)}>
+                  <option value="All">All Prices</option>
+                  <option value="Free">Free</option>
+                  <option value="Paid">Paid</option>
                 </select>
               </div>
               <div className="filter-item">
@@ -224,7 +237,13 @@ export default function Courses() {
             const hasFreePreview = c.price === '0' || c.price === 0 || idx % 3 === 0;
 
             return (
-              <article className="course-card" key={courseId}>
+              <article
+                className="course-card transition-card"
+                key={courseId}
+                style={{ animation: `fadeInUp 0.6s ease ${idx * 0.1}s backwards`, transform: 'translateY(0)', transition: 'transform 0.3s' }}
+                onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-6px)'}
+                onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+              >
                 <div className="card-media" style={{ backgroundImage: `url(${c.img || placeholder})` }}>
                   {hasFreePreview && <div className="card-free-preview-badge">Free Preview</div>}
                   <div className="card-tag">{c.tag}</div>
@@ -262,7 +281,14 @@ export default function Courses() {
             );
           })}
 
-          {!loading && filtered.length === 0 && <div className="no-results">No courses matched your search.</div>}
+          {!loading && filtered.length === 0 && (
+            <div className="no-results" style={{ gridColumn: '1 / -1', padding: '60px', textAlign: 'center' }}>
+              <div style={{ fontSize: '64px', marginBottom: '16px' }}>🤷‍♂️</div>
+              <h3 style={{ color: 'var(--upwise-dark)' }}>No courses found</h3>
+              <p style={{ color: 'var(--muted)' }}>Try adjusting your filters or search query.</p>
+              <button className="btn outline" onClick={() => { setQuery(''); setCategory('All Categories'); setLevel('All Levels'); setPriceType('All'); }} style={{ marginTop: '16px' }}>Clear All Filters</button>
+            </div>
+          )}
         </div>
 
         {page * itemsPerPage < filtered.length && (

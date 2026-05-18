@@ -51,10 +51,21 @@ app.use((req, res) => {
 app.use(errorHandler);
 
 // ─────────── Start Server ───────────
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🚀 UpWise API running on port ${PORT}`);
   console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`   Health: http://localhost:${PORT}/api/health\n`);
+});
+
+// Handle listening errors
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`\n❌ Error: Port ${PORT} is already in use.`);
+    console.error(`   Please run "taskkill /F /IM node.exe" to clear background processes.\n`);
+  } else {
+    console.error('Server error:', err);
+  }
+  process.exit(1);
 });
 
 // ─────────── Graceful Shutdown ───────────

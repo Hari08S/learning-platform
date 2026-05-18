@@ -9,7 +9,9 @@ const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
 export default function InternshipDetails() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { internshipEnrollments, setInternshipEnrollments, isLoggedIn } = useStore();
+    const internshipEnrollments = useStore(state => state.internshipEnrollments);
+    const setInternshipEnrollments = useStore(state => state.setInternshipEnrollments);
+    const isLoggedIn = useStore(state => state.isLoggedIn);
 
     const [internship, setInternship] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -85,7 +87,12 @@ export default function InternshipDetails() {
                 <div className="detail-main">
                     {/* Hero Banner Header */}
                     <div className="detail-hero">
-                        <img src={heroImg} alt={internship.title} className="detail-hero-img" />
+                        <img
+                            src={heroImg}
+                            alt={internship.title}
+                            className="detail-hero-img"
+                            onError={(e) => { e.target.src = '/logo.png'; }}
+                        />
                         <div className="hero-overlay">
                             <div className="hero-tag" style={{ textTransform: 'uppercase' }}>{internship.domain}</div>
                             <h1 className="detail-title">{internship.title}</h1>

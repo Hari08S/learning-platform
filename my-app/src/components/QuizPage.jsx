@@ -1,6 +1,7 @@
 // src/components/QuizPage.jsx
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import confetti from 'canvas-confetti';
 
 // Adjust API_BASE if your env var differs
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
@@ -25,7 +26,7 @@ export default function QuizPage() {
     startRef.current = Date.now();
     window.__quizStartTime = startRef.current;
     return () => {
-      try { delete window.__quizStartTime; } catch (e) {}
+      try { delete window.__quizStartTime; } catch (e) { }
     };
   }, []);
 
@@ -226,6 +227,33 @@ export default function QuizPage() {
   // Passing condition
   const passed = score >= (quiz.passingScore ?? 50);
 
+  useEffect(() => {
+    if (showResults && passed) {
+      confetti({
+        particleCount: 150,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+    }
+  }, [showResults, passed]);
+
+  const handleShareTwitter = () => {
+    const text = `I just completed the ${courseTitle} course on Upwise! 🎉 Check it out!`;
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  };
+
+  const handleShareLinkedIn = () => {
+    const url = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.origin)}`;
+    window.open(url, '_blank');
+  };
+
+  const navToPortfolio = () => {
+    const user = JSON.parse(localStorage.getItem('user'));
+    const username = user?.email?.split('@')[0] || 'user';
+    navigate(`/portfolio/${username}`);
+  };
+
   return (
     <div style={{ maxWidth: 900, margin: '40px auto', padding: 20 }}>
       <h1 style={{ textAlign: 'center', fontSize: 32, color: '#1e293b' }}>{courseTitle} - Final Quiz</h1>
@@ -240,15 +268,15 @@ export default function QuizPage() {
               <h3 style={{ margin: '0 0 12px', color: '#0f172a' }}>{i + 1}. {q.question}</h3>
               {(q.options || []).map((opt, j) => (
                 <label key={opt.id != null ? `${opt.id}` : j} onClick={() => handleSelect(i, j)}
-                       style={{
-                         display: 'block',
-                         padding: 12,
-                         margin: '8px 0',
-                         background: selectedAnswers[i] === j ? '#eef2ff' : '#f8fafc',
-                         border: `2px solid ${selectedAnswers[i] === j ? '#7c3aed' : '#e6eef8'}`,
-                         borderRadius: 10,
-                         cursor: 'pointer'
-                       }}>
+                  style={{
+                    display: 'block',
+                    padding: 12,
+                    margin: '8px 0',
+                    background: selectedAnswers[i] === j ? '#eef2ff' : '#f8fafc',
+                    border: `2px solid ${selectedAnswers[i] === j ? '#7c3aed' : '#e6eef8'}`,
+                    borderRadius: 10,
+                    cursor: 'pointer'
+                  }}>
                   <input type="radio" checked={selectedAnswers[i] === j} readOnly style={{ marginRight: 12 }} />
                   {typeof opt === 'string' ? opt : (opt.text ?? JSON.stringify(opt))}
                 </label>
@@ -274,19 +302,41 @@ export default function QuizPage() {
         <div style={{ textAlign: 'center', padding: 60, borderRadius: 12, marginTop: 40 }}>
           {passed ? (
             <div style={{ background: '#ecfdf5', border: '5px solid #10b981', borderRadius: 12, padding: 30 }}>
-              <h2 style={{ fontSize: 34, color: '#166534' }}>Congratulations! You Passed 🎉</h2>
-              <h3 style={{ fontSize: 28, marginTop: 12 }}>Score: {score}%</h3>
-              <div style={{ marginTop: 30 }}>
-                <button onClick={() => navigate('/dashboard')} style={{
-                  padding: '12px 34px', background: '#7c3aed', color: 'white', border: 'none', borderRadius: 10, margin: '0 12px', cursor: 'pointer'
-                }}>
-                  Dashboard
-                </button>
-                <button onClick={() => navigate(`/courses/${courseId}/certificate`)} style={{
-                  padding: '12px 34px', background: '#10b981', color: 'white', border: 'none', borderRadius: 10, margin: '0 12px', cursor: 'pointer'
-                }}>
-                  Download Certificate
-                </button>
+              <h2 style={{ fontSize: 34, color: '#166534' }}>You Did It! 🎉</h2>
+              <h3 style={{ fontSize: 24, margin: '12px 0 8px', color: '#065f46' }}>Course Completed</h3>
+              <p style={{ fontSize: 18, color: '#047857' }}>Score: {score}%</p>
+
+              <div style={{ marginTop: 30, display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                  <button onClick={() => navigate(`/courses/${courseId}/certificate`)} style={{
+                    padding: '12px 24px', background: '#10b981', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 'bold'
+                  }}>
+                    Download Certificate
+                  </button>
+                  <button onClick={navToPortfolio} style={{
+                    padding: '12px 24px', background: '#0f172a', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 'bold'
+                  }}>
+                    View My Portfolio
+                  </button>
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px', marginTop: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                  <button onClick={handleShareLinkedIn} style={{
+                    padding: '10px 20px', background: '#0077b5', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px'
+                  }}>
+                    Share on LinkedIn
+                  </button>
+                  <button onClick={handleShareTwitter} style={{
+                    padding: '10px 20px', background: '#1da1f2', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px'
+                  }}>
+                    Share on X
+                  </button>
+                  <button onClick={() => navigate('/dashboard')} style={{
+                    padding: '10px 20px', background: '#cbd5e1', color: '#334155', border: 'none', borderRadius: 8, cursor: 'pointer'
+                  }}>
+                    Dashboard
+                  </button>
+                </div>
               </div>
             </div>
           ) : (

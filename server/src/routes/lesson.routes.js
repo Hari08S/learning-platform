@@ -109,17 +109,25 @@ router.post('/me/progress/mark-lesson', requireAuth, async (req, res, next) => {
         if (lessonItem && lessonItem.mins && !existingLessons.includes(lessonKey)) {
             const addHours = Number(lessonItem.mins) / 60;
             prog.hoursLearned = (prog.hoursLearned || 0) + addHours;
+
+            // Add XP for completing a lesson (20 XP)
+            user.xp = (user.xp || 0) + 20;
         }
 
         let newPercent = 0;
         if (total > 0) newPercent = Math.round((doneCount / total) * 100);
         if (newPercent > 100) newPercent = 100;
 
+        const wasAlreadyComplete = prog.percent >= 100;
         prog.percent = newPercent;
         prog.lastSeenAt = new Date();
 
         if (newPercent >= 100 && !prog.completedAt) {
             prog.completedAt = new Date();
+            // Bonus XP for finishing the course! (100 XP)
+            if (!wasAlreadyComplete) {
+                user.xp = (user.xp || 0) + 100;
+            }
         }
 
         // Streak logic
@@ -142,6 +150,7 @@ router.post('/me/progress/mark-lesson', requireAuth, async (req, res, next) => {
             }
         }
         user.lastActiveAt = now;
+
 
         await user.save();
         return res.json({ message: 'Lesson marked', progress: user.progress });

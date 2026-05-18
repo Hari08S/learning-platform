@@ -58,6 +58,7 @@ const UserSchema = new mongoose.Schema({
     badges: [BadgeSchema],
     certificates: [CertificateSchema],
     streakDays: { type: Number, default: 0 },
+    xp: { type: Number, default: 0 },
     lastActiveAt: Date,
     wishlist: [{ type: String }], // Store legacy/ObjectIDs
     weeklyGoalMinutes: { type: Number, default: 0 },

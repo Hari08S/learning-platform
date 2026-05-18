@@ -100,7 +100,7 @@ export default function AdminCourses() {
     setFormData({
       title: "", author: "", description: "", price: "", level: "Beginner", hours: "", img: "",
       tag: "", isPublished: true, includes: "", curriculum: [], quiz: null,
-      instructor: { name: "", bio: "", rating: 5, students: 0, courses: 1 }
+      instructor: { name: "", bio: "", rating: 5, students: 0, courses: 1, avatar: "" }
     });
     setModalOpen(true);
   };
@@ -121,7 +121,7 @@ export default function AdminCourses() {
       includes: course.includes && course.includes.length > 0 ? course.includes.join("\n") : "",
       curriculum: course.curriculum && course.curriculum.length > 0 ? course.curriculum : [],
       quiz: course.quiz || null,
-      instructor: course.instructor || { name: course.author || "", bio: "", rating: 5, students: 0, courses: 1 }
+      instructor: course.instructor || { name: course.author || "", bio: "", rating: 5, students: 0, courses: 1, avatar: "" }
     });
     setModalOpen(true);
   };
@@ -353,6 +353,12 @@ export default function AdminCourses() {
                 Basics
               </button>
               <button
+                style={{ padding: "8px 16px", background: "none", border: "none", borderBottom: activeTab === "instructor" ? "2px solid #10b981" : "2px solid transparent", cursor: "pointer", fontWeight: activeTab === "instructor" ? 700 : 500, color: activeTab === "instructor" ? "#10b981" : "var(--muted)" }}
+                onClick={() => setActiveTab("instructor")}
+              >
+                Instructor
+              </button>
+              <button
                 style={{ padding: "8px 16px", background: "none", border: "none", borderBottom: activeTab === "details" ? "2px solid #10b981" : "2px solid transparent", cursor: "pointer", fontWeight: activeTab === "details" ? 700 : 500, color: activeTab === "details" ? "#10b981" : "var(--muted)" }}
                 onClick={() => setActiveTab("details")}
               >
@@ -369,12 +375,6 @@ export default function AdminCourses() {
                 onClick={() => setActiveTab("quiz")}
               >
                 Quiz Builder
-              </button>
-              <button
-                style={{ padding: "8px 16px", background: "none", border: "none", borderBottom: activeTab === "instructor" ? "2px solid #10b981" : "2px solid transparent", cursor: "pointer", fontWeight: activeTab === "instructor" ? 700 : 500, color: activeTab === "instructor" ? "#10b981" : "var(--muted)" }}
-                onClick={() => setActiveTab("instructor")}
-              >
-                Instructor
               </button>
             </div>
 
@@ -396,7 +396,19 @@ export default function AdminCourses() {
                   <div style={{ display: "flex", gap: "12px" }}>
                     <label style={{ flex: 1 }}>
                       <div style={{ fontWeight: 600, fontSize: "14px", color: "var(--muted)" }}>Author</div>
-                      <input style={{ width: "100%", padding: "10px", marginTop: "6px", borderRadius: "8px", border: "1px solid #ccc" }} type="text" value={formData.author} onChange={e => setFormData({ ...formData, author: e.target.value })} />
+                      <input
+                        style={{ width: "100%", padding: "10px", marginTop: "6px", borderRadius: "8px", border: "1px solid #ccc" }}
+                        type="text"
+                        value={formData.author}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setFormData(prev => ({
+                            ...prev,
+                            author: val,
+                            instructor: { ...prev.instructor, name: prev.instructor.name || val }
+                          }));
+                        }}
+                      />
                     </label>
                     <label style={{ flex: 1 }}>
                       <div style={{ fontWeight: 600, fontSize: "14px", color: "var(--muted)" }}>Price</div>
@@ -606,6 +618,10 @@ export default function AdminCourses() {
                       <input style={{ width: "100%", padding: "10px", marginTop: "6px", borderRadius: "8px", border: "1px solid #ccc" }} type="number" value={formData.instructor.courses} onChange={e => setFormData({ ...formData, instructor: { ...formData.instructor, courses: Number(e.target.value) } })} />
                     </label>
                   </div>
+                  <label>
+                    <div style={{ fontWeight: 600, fontSize: "14px", color: "var(--muted)" }}>Instructor Avatar URL</div>
+                    <input style={{ width: "100%", padding: "10px", marginTop: "6px", borderRadius: "8px", border: "1px solid #ccc" }} type="text" value={formData.instructor.avatar} onChange={e => setFormData({ ...formData, instructor: { ...formData.instructor, avatar: e.target.value } })} placeholder="/logo.png" />
+                  </label>
                 </>
               )}
             </div>

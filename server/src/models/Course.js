@@ -18,7 +18,9 @@ const InstructorSchema = new mongoose.Schema({
     rating: Number,
     students: Number,
     courses: Number,
+    avatar: String,
 }, { _id: false });
+
 
 const CourseOptionSchema = new mongoose.Schema({
     id: { type: String },

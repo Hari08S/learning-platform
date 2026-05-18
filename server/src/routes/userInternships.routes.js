@@ -70,6 +70,35 @@ router.post('/:id/apply', async (req, res) => {
     }
 });
 
+// DELETE /api/user/internships/:id/withdraw
+router.delete('/:id/withdraw', async (req, res) => {
+    try {
+        const application = await InternshipApplication.findOne({
+            internshipId: req.params.id,
+            userId: req.userId
+        });
+
+        if (!application) {
+            return res.status(404).json({ message: 'No enrollment found for this internship' });
+        }
+
+        if (application.status === 'completed') {
+            return res.status(400).json({ message: 'Cannot withdraw from a completed internship' });
+        }
+
+        // Remove all task submissions for this application
+        await InternshipSubmission.deleteMany({ applicationId: application._id });
+
+        // Remove the application itself
+        await InternshipApplication.findByIdAndDelete(application._id);
+
+        res.json({ success: true, message: 'Successfully withdrawn from internship' });
+    } catch (error) {
+        console.error('Error withdrawing from internship:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 // POST /api/user/internships/:id/submit/:taskIndex
 router.post('/:id/submit/:taskIndex', async (req, res) => {
     try {

@@ -223,6 +223,13 @@ export default function CertificatesPage() {
     }
   };
 
+  const handleShare = (title) => {
+    const userName = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).email?.split('@')[0] || 'user' : 'user';
+    const text = `I just completed the ${title} course on Upwise! 🚀 Check out my progress on my portfolio: ${window.location.origin}/portfolio/${userName}`;
+    navigator.clipboard.writeText(text);
+    import('react-hot-toast').then(mod => mod.toast.success("Share text copied to clipboard!"));
+  };
+
   if (loading) {
     return <div className="container" style={{ padding: 48 }}>Loading certificates…</div>;
   }
@@ -296,13 +303,23 @@ export default function CertificatesPage() {
 
                   {/* Download when completed (>=100) */}
                   {showDownload && (
-                    <button
-                      className="btn"
-                      onClick={() => handleDownloadCertificate(meta, cid)}
-                      style={{ minWidth: 160, background: '#059669', color: '#fff' }}
-                    >
-                      Download Certificate
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        className="btn outline"
+                        onClick={() => handleShare(meta?.title)}
+                        style={{ background: '#f8fafc', borderColor: '#cbd5e1', color: '#334155' }}
+                        title="Copy Share Link"
+                      >
+                        🔗 Share
+                      </button>
+                      <button
+                        className="btn"
+                        onClick={() => handleDownloadCertificate(meta, cid)}
+                        style={{ minWidth: 160, background: '#059669', color: '#fff' }}
+                      >
+                        Download Certificate
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>

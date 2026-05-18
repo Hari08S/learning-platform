@@ -30,7 +30,13 @@ router.use('/', badgeRoutes);
 router.use('/me', certificateRoutes);
 router.use('/internships', internshipsRoutes);
 router.use('/user/internships', userInternshipsRoutes);
-router.use('/me/notes', require('./notes.routes'));
+
+// New features routes
+router.use('/', require('./gamification'));
+router.use('/me/notes', require('./notes'));
+router.use('/courses', require('./reviews'));
+router.use('/portfolio', require('./portfolio'));
+router.use('/payment', require('./payment'));
 
 // Mount admin routes
 router.use('/admin', adminRoutes);

@@ -19,7 +19,8 @@ export default function AdminInternships() {
     const [loadingApplicants, setLoadingApplicants] = useState(false);
 
     const [formData, setFormData] = useState({
-        title: "", description: "", company: "", domain: "tech", fee: "", thumbnail: "", isPublished: true, tasks: []
+        title: "", description: "", company: "", domain: "tech", fee: "", thumbnail: "", isPublished: true, tasks: [],
+        mentorName: "", mentorBio: "", mentorAvatar: ""
     });
 
     const token = localStorage.getItem("token");
@@ -69,7 +70,8 @@ export default function AdminInternships() {
         setEditingInternship(null);
         setActiveTab("basics");
         setFormData({
-            title: "", description: "", company: "", domain: "tech", fee: "", thumbnail: "", isPublished: true, tasks: []
+            title: "", description: "", company: "", domain: "tech", fee: "", thumbnail: "", isPublished: true, tasks: [],
+            mentorName: "", mentorBio: "", mentorAvatar: ""
         });
         setApplicantsData([]);
         setModalOpen(true);
@@ -86,7 +88,10 @@ export default function AdminInternships() {
             fee: int.fee || 0,
             thumbnail: int.thumbnail || "",
             isPublished: int.status === 'published',
-            tasks: int.tasks || []
+            tasks: int.tasks || [],
+            mentorName: int.mentorName || "",
+            mentorBio: int.mentorBio || "",
+            mentorAvatar: int.mentorAvatar || ""
         });
         setApplicantsData([]);
         setModalOpen(true);
@@ -360,6 +365,12 @@ export default function AdminInternships() {
                             >
                                 Tasks Builder
                             </button>
+                            <button
+                                style={{ padding: "8px 16px", background: "none", border: "none", borderBottom: activeTab === "mentor" ? "2px solid #10b981" : "2px solid transparent", cursor: "pointer", fontWeight: activeTab === "mentor" ? 700 : 500, color: activeTab === "mentor" ? "#10b981" : "var(--muted)" }}
+                                onClick={() => handleTabChange("mentor")}
+                            >
+                                Mentor
+                            </button>
                             {editingInternship && (
                                 <button
                                     style={{ padding: "8px 16px", background: "none", border: "none", borderBottom: activeTab === "applicants" ? "2px solid #10b981" : "2px solid transparent", cursor: "pointer", fontWeight: activeTab === "applicants" ? 700 : 500, color: activeTab === "applicants" ? "#10b981" : "var(--muted)" }}
@@ -400,7 +411,8 @@ export default function AdminInternships() {
                                         <label style={{ flex: 1 }}>
                                             <div style={{ fontWeight: 600, fontSize: "14px", color: "var(--muted)" }}>Domain</div>
                                             <select style={{ width: "100%", padding: "10px", marginTop: "6px", borderRadius: "8px", border: "1px solid #ccc" }} value={formData.domain} onChange={e => setFormData({ ...formData, domain: e.target.value })}>
-                                                <option value="tech">Technology / Software</option>
+                                                <option value="tech">Technology</option>
+                                                <option value="software">Software Engineering</option>
                                                 <option value="data">Data Science</option>
                                                 <option value="design">UI/UX Design</option>
                                                 <option value="marketing">Digital Marketing</option>
@@ -474,6 +486,24 @@ export default function AdminInternships() {
                                         ))
                                     )}
                                 </div>
+                            )}
+
+                            {/* TAB: MENTOR */}
+                            {activeTab === "mentor" && (
+                                <>
+                                    <label>
+                                        <div style={{ fontWeight: 600, fontSize: "14px", color: "var(--muted)" }}>Mentor Name</div>
+                                        <input style={{ width: "100%", padding: "10px", marginTop: "6px", borderRadius: "8px", border: "1px solid #ccc" }} type="text" value={formData.mentorName} onChange={e => setFormData({ ...formData, mentorName: e.target.value })} />
+                                    </label>
+                                    <label>
+                                        <div style={{ fontWeight: 600, fontSize: "14px", color: "var(--muted)" }}>Mentor Bio</div>
+                                        <textarea style={{ width: "100%", padding: "10px", marginTop: "6px", borderRadius: "8px", border: "1px solid #ccc", minHeight: "80px", fontFamily: "inherit" }} value={formData.mentorBio} onChange={e => setFormData({ ...formData, mentorBio: e.target.value })}></textarea>
+                                    </label>
+                                    <label>
+                                        <div style={{ fontWeight: 600, fontSize: "14px", color: "var(--muted)" }}>Mentor Avatar URL</div>
+                                        <input style={{ width: "100%", padding: "10px", marginTop: "6px", borderRadius: "8px", border: "1px solid #ccc" }} type="text" value={formData.mentorAvatar} onChange={e => setFormData({ ...formData, mentorAvatar: e.target.value })} />
+                                    </label>
+                                </>
                             )}
 
                             {/* TAB: APPLICANTS & SUBMISSIONS */}

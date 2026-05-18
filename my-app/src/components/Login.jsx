@@ -8,7 +8,7 @@ const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
 
 const Login = ({ setLoggedIn }) => {
   const nav = useNavigate();
-  const { login } = useStore();
+  const login = useStore(state => state.login);
 
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");

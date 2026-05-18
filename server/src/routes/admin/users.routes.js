@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const requireAdmin = require('../../middleware/requireAdmin');
 const User = require('../../models/User');
+const InternshipApplication = require('../../models/InternshipApplication');
 
 // GET /api/admin/users
 router.get('/users', requireAdmin, async (req, res, next) => {
@@ -12,18 +13,37 @@ router.get('/users', requireAdmin, async (req, res, next) => {
             .sort({ createdAt: -1 })
             .lean();
 
+        // Fetch internship enrollment counts per user
+        const internshipCounts = await InternshipApplication.aggregate([
+            { $group: {
+                _id: '$userId',
+                total: { $sum: 1 },
+                active: { $sum: { $cond: [{ $eq: ['$status', 'active'] }, 1, 0] } },
+                completed: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } }
+            }}
+        ]);
+        const internshipMap = {};
+        internshipCounts.forEach(ic => {
+            internshipMap[String(ic._id)] = ic;
+        });
+
         res.json({
-            users: users.map(u => ({
-                _id: String(u._id),
-                name: u.name,
-                email: u.email,
-                role: u.role,
-                createdAt: u.createdAt,
-                purchasedCourses: u.purchasedCourses || [],
-                progress: u.progress || [],
-                badges: u.badges || [],
-                streakDays: u.streakDays || 0,
-            })),
+            users: users.map(u => {
+                const uid = String(u._id);
+                const intStats = internshipMap[uid] || { total: 0, active: 0, completed: 0 };
+                return {
+                    _id: uid,
+                    name: u.name,
+                    email: u.email,
+                    role: u.role,
+                    createdAt: u.createdAt,
+                    purchasedCourses: u.purchasedCourses || [],
+                    progress: u.progress || [],
+                    badges: u.badges || [],
+                    streakDays: u.streakDays || 0,
+                    internships: intStats,
+                };
+            }),
         });
     } catch (err) { next(err); }
 });
