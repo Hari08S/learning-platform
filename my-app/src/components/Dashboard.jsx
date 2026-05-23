@@ -400,7 +400,7 @@ const Dashboard = () => {
   }, []);
 
   const handleCancel = async (courseId) => {
-    if (!window.confirm('Are you sure you want to cancel this purchase?')) return;
+    if (!window.confirm('Are you sure you want to cancel this purchase? Note: The purchase amount will not be refunded.')) return;
     const token = localStorage.getItem('token');
     if (!token) return alert('You must be signed in.');
     try {
@@ -423,7 +423,7 @@ const Dashboard = () => {
   };
 
   const handleCancelInternship = async (internshipId) => {
-    if (!window.confirm('Are you sure you want to withdraw from this internship? All your submissions will be deleted.')) return;
+    if (!window.confirm('Are you sure you want to withdraw from this internship? All your submissions will be deleted. Note: The purchase amount will not be refunded.')) return;
     const token = localStorage.getItem('token');
     if (!token) return alert('You must be signed in.');
     try {
