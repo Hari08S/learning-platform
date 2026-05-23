@@ -236,6 +236,8 @@ export default function CourseDetail() {
     });
   };
 
+  const [paymentCountdown, setPaymentCountdown] = useState(null);
+
   const handleBuy = async () => {
     setErrMsg('');
     if (buttonState === 'processing') return;
@@ -249,77 +251,56 @@ export default function CourseDetail() {
     }
 
     try {
+      // Create order on backend (to register the purchase intent)
       const res = await fetch(`${API_BASE}/api/payment/create-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ courseId: courseIdResolved() })
       });
-
       const orderData = await res.json();
       if (!res.ok) throw new Error(orderData.message || 'Failed to create order');
 
-      if (orderData.free) {
-        // Fallback to old purchase logic if free
-        await fetch(`${API_BASE}/api/purchases`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ courseId: courseIdResolved() })
-        });
-        completePurchaseUI();
-        return;
-      }
-
-      const isScriptLoaded = await loadRazorpayScript();
-      if (!isScriptLoaded) throw new Error('Razorpay SDK failed to load');
-
-      const options = {
-        key: orderData.key,
-        amount: orderData.amount,
-        currency: orderData.currency,
-        name: 'Upwise Learning',
-        description: `Purchase ${course.title}`,
-        order_id: orderData.orderId,
-        handler: async function (response) {
-          setButtonState('processing');
-          try {
-            const verifyRes = await fetch(`${API_BASE}/api/payment/verify`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-              body: JSON.stringify({
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-                courseId: courseIdResolved()
-              })
-            });
-            if (verifyRes.ok) {
-              import('react-hot-toast').then(mod => mod.toast.success("Payment Successful! 🎉"));
-              completePurchaseUI();
-            } else {
-              throw new Error('Payment verification failed');
-            }
-          } catch (e) {
-            setErrMsg(e.message);
-            setButtonState('idle');
-          }
-        },
-        prefill: {
-          name: userObj.name || '',
-          email: userObj.email || ''
-        },
-        theme: { color: '#065F46' }
-      };
-
-      const rzp = new window.Razorpay(options);
-      rzp.on('payment.failed', function (response) {
-        setErrMsg('Payment failed or closed');
-        setButtonState('idle');
-      });
-      rzp.open();
+      // ── DEMO MODE: Auto-complete payment after 5 second countdown ──
+      setPaymentCountdown(5);
+      let count = 5;
+      const timer = setInterval(() => {
+        count -= 1;
+        setPaymentCountdown(count);
+        if (count <= 0) {
+          clearInterval(timer);
+          setPaymentCountdown(null);
+          simulatePaymentSuccess(token, orderData);
+        }
+      }, 1000);
 
     } catch (err) {
       console.error('Purchase initiation failed', err);
       setErrMsg(err.message || 'Purchase failed');
+      setButtonState('idle');
+    }
+  };
+
+  const simulatePaymentSuccess = async (token, orderData) => {
+    try {
+      // Directly record the purchase without real Razorpay verification
+      const purchaseRes = await fetch(`${API_BASE}/api/purchases`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ courseId: courseIdResolved() })
+      });
+
+      if (!purchaseRes.ok) {
+        // If already purchased, still treat as success
+        const d = await purchaseRes.json();
+        if (!d.message?.toLowerCase().includes('already')) {
+          throw new Error(d.message || 'Purchase recording failed');
+        }
+      }
+
+      import('react-hot-toast').then(mod => mod.toast.success('🎉 Payment Successful! Course unlocked.'));
+      completePurchaseUI();
+    } catch (err) {
+      setErrMsg(err.message || 'Payment simulation failed');
       setButtonState('idle');
     }
   };
@@ -635,14 +616,37 @@ export default function CourseDetail() {
                 <button className="btn outline" style={{ width: "100%", marginTop: 12 }} onClick={handleCancel}>Cancel Purchase</button>
               </>
             ) : (
-              <button
-                className="btn primary"
-                style={{ width: "100%", marginTop: 18 }}
-                onClick={handleBuy}
-                disabled={buttonState === 'processing'}
-              >
-                {buttonState === 'processing' ? 'Processing...' : `Buy Now — ₹${course.price}`}
-              </button>
+              <>
+                <button
+                  className="btn primary"
+                  style={{ width: "100%", marginTop: 18, position: 'relative', overflow: 'hidden' }}
+                  onClick={handleBuy}
+                  disabled={buttonState === 'processing'}
+                >
+                  {buttonState === 'processing' && paymentCountdown !== null
+                    ? `⏳ Auto-completing in ${paymentCountdown}s...`
+                    : buttonState === 'processing'
+                    ? 'Processing...'
+                    : `Buy Now — ₹${course.price}`}
+                </button>
+                {paymentCountdown !== null && (
+                  <div style={{
+                    marginTop: 10,
+                    padding: '10px 14px',
+                    background: 'linear-gradient(135deg, #065F46, #059669)',
+                    borderRadius: 10,
+                    color: '#fff',
+                    fontSize: 13,
+                    textAlign: 'center',
+                    fontWeight: 600,
+                    animation: 'pulse 1s infinite',
+                  }}>
+                    🔒 Simulating secure payment...<br />
+                    <span style={{ fontSize: 22, fontWeight: 800 }}>{paymentCountdown}</span>
+                    <span style={{ fontSize: 12, opacity: 0.8 }}> seconds</span>
+                  </div>
+                )}
+              </>
             )}
 
             <hr style={{ margin: "20px 0" }} />
