@@ -1,8 +1,18 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import '../styles/courses.css'; // Reusing the same styling grid
 import { Link, useNavigate } from 'react-router-dom';
-import placeholder from '/logo.png';
 import SEO from './SEO.jsx';
+
+// Domain-based gradient banners (no external images needed)
+const DOMAIN_STYLES = {
+  tech:      { gradient: 'linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%)', icon: '💻' },
+  software:  { gradient: 'linear-gradient(135deg, #1e3a5f 0%, #7c3aed 100%)', icon: '🖥️' },
+  data:      { gradient: 'linear-gradient(135deg, #064e3b 0%, #10b981 100%)', icon: '📊' },
+  marketing: { gradient: 'linear-gradient(135deg, #7c2d12 0%, #f97316 100%)', icon: '📣' },
+  design:    { gradient: 'linear-gradient(135deg, #4c1d95 0%, #ec4899 100%)', icon: '🎨' },
+  finance:   { gradient: 'linear-gradient(135deg, #14532d 0%, #22c55e 100%)', icon: '💰' },
+  other:     { gradient: 'linear-gradient(135deg, #1e293b 0%, #64748b 100%)', icon: '🏢' },
+};
 import useStore from '../store';
 
 const domains = ['All', 'tech', 'marketing', 'design', 'finance', 'other'];
@@ -122,18 +132,43 @@ export default function InternshipsList() {
                     {internships.map((internship) => {
                         const isEnrolled = internshipEnrollments && internshipEnrollments.includes(internship._id);
 
-                        return (
+                            return (
                             <article className="course-card" key={internship._id}>
                                 <div className="card-media">
-                                    <img
-                                        src={internship.thumbnail || placeholder}
-                                        alt={internship.title}
-                                        onError={(e) => { e.target.src = placeholder; }}
-                                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                                    />
+                                    {internship.thumbnail ? (
+                                        <img
+                                            src={internship.thumbnail}
+                                            alt={internship.title}
+                                            onError={(e) => {
+                                                e.target.style.display = 'none';
+                                                e.target.nextSibling.style.display = 'flex';
+                                            }}
+                                            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                                        />
+                                    ) : null}
+                                    <div
+                                        style={{
+                                            display: internship.thumbnail ? 'none' : 'flex',
+                                            width: '100%',
+                                            height: '100%',
+                                            background: (DOMAIN_STYLES[internship.domain] || DOMAIN_STYLES.other).gradient,
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            flexDirection: 'column',
+                                            gap: '8px',
+                                        }}
+                                    >
+                                        <span style={{ fontSize: '48px' }}>
+                                            {(DOMAIN_STYLES[internship.domain] || DOMAIN_STYLES.other).icon}
+                                        </span>
+                                        <span style={{ color: 'rgba(255,255,255,0.85)', fontSize: '13px', fontWeight: 600, textTransform: 'capitalize', letterSpacing: '0.5px' }}>
+                                            {internship.domain} Internship
+                                        </span>
+                                    </div>
                                     {isEnrolled && <div className="card-free-preview-badge" style={{ background: '#10b981', color: '#fff' }}>Enrolled</div>}
                                     <div className="card-tag" style={{ textTransform: 'capitalize' }}>{internship.domain}</div>
                                 </div>
+
 
                                 <div className="card-body">
                                     <h3 className="card-title">{internship.title}</h3>
