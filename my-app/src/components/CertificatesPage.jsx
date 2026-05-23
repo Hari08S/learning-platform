@@ -191,7 +191,7 @@ export default function CertificatesPage() {
           });
           if (intRes.ok) {
             const intData = await intRes.json();
-            const completedInternships = (intData.applications || []).filter(app => app.status === 'completed');
+            const completedInternships = intData.applications || [];
             if (mounted) setInternshipItems(completedInternships);
           }
         } catch (errInt) {
@@ -392,29 +392,39 @@ export default function CertificatesPage() {
                   <div style={{ flex: 1 }}>
                     <h3 style={{ margin: '4px 0 6px' }}>{i.title}</h3>
                     <div style={{ color: '#6b7280', fontSize: 13 }}>
-                      Company: <strong>{i.company || 'Upwise Hosted'}</strong> &nbsp;•&nbsp; Completed: {fmtDate(app.completedAt)}
+                      Company: <strong>{i.company || 'Upwise Hosted'}</strong> &nbsp;•&nbsp; {app.status === 'completed' ? `Completed: ${fmtDate(app.completedAt)}` : `Enrolled: ${fmtDate(app.createdAt)}`}
                     </div>
 
                     <div style={{ marginTop: 12 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ color: '#059669', fontWeight: 700 }}>100%</div>
-                        <div style={{ color: '#94a3b8', fontSize: 13 }}>Completed</div>
+                        <div style={{ color: app.status === 'completed' ? '#059669' : '#7c3aed', fontWeight: 700 }}>{app.progress || 0}%</div>
+                        <div style={{ color: '#94a3b8', fontSize: 13 }}>{app.status === 'completed' ? 'Completed' : 'In progress'}</div>
                       </div>
 
                       <div style={{ height: 8, background: '#eef2f7', borderRadius: 6, overflow: 'hidden', marginTop: 8 }}>
-                        <div style={{ width: '100%', height: '100%', background: '#10b981' }} />
+                        <div style={{ width: `${app.progress || 0}%`, height: '100%', background: app.status === 'completed' ? '#10b981' : '#7c3aed' }} />
                       </div>
                     </div>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end' }}>
-                    <button
-                      className="btn"
-                      onClick={() => handleDownloadCertificate({ title: i.title + " Internship" }, app._id)}
-                      style={{ minWidth: 160, background: '#059669', color: '#fff' }}
-                    >
-                      Download Certificate
-                    </button>
+                    {app.status === 'completed' ? (
+                      <button
+                        className="btn"
+                        onClick={() => handleDownloadCertificate({ title: i.title + " Internship" }, app._id)}
+                        style={{ minWidth: 160, background: '#059669', color: '#fff' }}
+                      >
+                        Download Certificate
+                      </button>
+                    ) : (
+                      <Link
+                        className="btn"
+                        to={`/internships/${i._id}`}
+                        style={{ minWidth: 160, textDecoration: 'none', textAlign: 'center', background: 'var(--border)', color: 'var(--text)' }}
+                      >
+                        Continue Internship
+                      </Link>
+                    )}
                   </div>
                 </div>
               );
