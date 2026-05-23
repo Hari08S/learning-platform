@@ -1,4 +1,5 @@
 require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -11,19 +12,21 @@ const errorHandler = require('./src/middleware/errorHandler');
 const apiRoutes = require('./src/routes');
 
 const app = express();
+
 const PORT = process.env.PORT || 4000;
 
-// ─────────── Database ───────────
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/upwise';
-connectDB(MONGO_URI);
+// ─────────── Database Connection ───────────
+connectDB(process.env.MONGO_URI);
 
 // ─────────── Global Middleware ───────────
-app.use(helmet()); // Security headers
-app.use(morgan('dev')); // Request logging
+app.use(helmet());
+app.use(morgan('dev'));
 app.use(cors(corsOptions));
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
-app.use(generalLimiter); // Rate limiting
+
+app.use(generalLimiter);
 
 // ─────────── API Routes ───────────
 app.use('/api', apiRoutes);
@@ -39,12 +42,17 @@ app.get('/', (req, res) => {
 });
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'healthy', uptime: process.uptime() });
+  res.json({
+    status: 'healthy',
+    uptime: process.uptime(),
+  });
 });
 
 // ─────────── 404 Handler ───────────
 app.use((req, res) => {
-  res.status(404).json({ message: `Route not found: ${req.method} ${req.originalUrl}` });
+  res.status(404).json({
+    message: `Route not found: ${req.method} ${req.originalUrl}`,
+  });
 });
 
 // ─────────── Error Handler ───────────
@@ -52,30 +60,25 @@ app.use(errorHandler);
 
 // ─────────── Start Server ───────────
 const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`\n🚀 UpWise API running on port ${PORT}`);
-  console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`   Health: http://localhost:${PORT}/api/health\n`);
+  console.log(`🚀 UpWise API running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
-// Handle listening errors
+// ─────────── Server Error Handling ───────────
 server.on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
-    console.error(`\n❌ Error: Port ${PORT} is already in use.`);
-    console.error(`   Please run "taskkill /F /IM node.exe" to clear background processes.\n`);
-  } else {
-    console.error('Server error:', err);
-  }
+  console.error('Server error:', err);
   process.exit(1);
 });
 
 // ─────────── Graceful Shutdown ───────────
 const shutdown = (signal) => {
-  console.log(`\n${signal} received. Shutting down gracefully...`);
+  console.log(`${signal} received. Shutting down gracefully...`);
+
   server.close(() => {
     console.log('Server closed.');
     process.exit(0);
   });
-  // Force exit after 10s
+
   setTimeout(() => process.exit(1), 10000);
 };
 
