@@ -24,6 +24,8 @@ export default function CourseDetail() {
   const [quiz, setQuiz] = useState(null);
   const [quizAvailableOnServer, setQuizAvailableOnServer] = useState(false);
   const [activeNoteIndex, setActiveNoteIndex] = useState(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [paymentCountdown, setPaymentCountdown] = useState(null);
 
   // Reviews State
   const [reviews, setReviews] = useState([]);
@@ -236,20 +238,35 @@ export default function CourseDetail() {
     });
   };
 
-  const [paymentCountdown, setPaymentCountdown] = useState(null);
-
-  const handleBuy = async () => {
+  const handleBuy = () => {
     setErrMsg('');
-    if (buttonState === 'processing') return;
-    setButtonState('processing');
-
     const token = localStorage.getItem('token');
     if (!token) {
       setErrMsg('Please sign in to purchase');
-      setButtonState('idle');
       return;
     }
+    setShowConfirmModal(true);
+  };
 
+  const startSimulatedPayment = async () => {
+    if (buttonState === 'processing') return;
+    setButtonState('processing');
+    setPaymentCountdown(5);
+
+    let count = 5;
+    const timer = setInterval(() => {
+      count -= 1;
+      setPaymentCountdown(count);
+      if (count <= 0) {
+        clearInterval(timer);
+        setPaymentCountdown(null);
+        executePurchase();
+      }
+    }, 1000);
+  };
+
+  const executePurchase = async () => {
+    const token = localStorage.getItem('token');
     try {
       // Create order on backend (to register the purchase intent)
       const res = await fetch(`${API_BASE}/api/payment/create-order`, {
@@ -260,28 +277,6 @@ export default function CourseDetail() {
       const orderData = await res.json();
       if (!res.ok) throw new Error(orderData.message || 'Failed to create order');
 
-      // ── DEMO MODE: Auto-complete payment after 5 second countdown ──
-      setPaymentCountdown(5);
-      let count = 5;
-      const timer = setInterval(() => {
-        count -= 1;
-        setPaymentCountdown(count);
-        if (count <= 0) {
-          clearInterval(timer);
-          setPaymentCountdown(null);
-          simulatePaymentSuccess(token, orderData);
-        }
-      }, 1000);
-
-    } catch (err) {
-      console.error('Purchase initiation failed', err);
-      setErrMsg(err.message || 'Purchase failed');
-      setButtonState('idle');
-    }
-  };
-
-  const simulatePaymentSuccess = async (token, orderData) => {
-    try {
       // Directly record the purchase without real Razorpay verification
       const purchaseRes = await fetch(`${API_BASE}/api/purchases`, {
         method: 'POST',
@@ -290,7 +285,6 @@ export default function CourseDetail() {
       });
 
       if (!purchaseRes.ok) {
-        // If already purchased, still treat as success
         const d = await purchaseRes.json();
         if (!d.message?.toLowerCase().includes('already')) {
           throw new Error(d.message || 'Purchase recording failed');
@@ -298,10 +292,13 @@ export default function CourseDetail() {
       }
 
       import('react-hot-toast').then(mod => mod.toast.success('🎉 Payment Successful! Course unlocked.'));
+      setShowConfirmModal(false);
       completePurchaseUI();
     } catch (err) {
+      console.error('Purchase failed', err);
       setErrMsg(err.message || 'Payment simulation failed');
       setButtonState('idle');
+      setShowConfirmModal(false);
     }
   };
 
@@ -621,33 +618,11 @@ export default function CourseDetail() {
               <>
                 <button
                   className="btn primary"
-                  style={{ width: "100%", marginTop: 18, position: 'relative', overflow: 'hidden' }}
+                  style={{ width: "100%", marginTop: 18 }}
                   onClick={handleBuy}
-                  disabled={buttonState === 'processing'}
                 >
-                  {buttonState === 'processing' && paymentCountdown !== null
-                    ? `⏳ Auto-completing in ${paymentCountdown}s...`
-                    : buttonState === 'processing'
-                    ? 'Processing...'
-                    : `Buy Now — ₹149`}
+                  Buy Now — ₹149
                 </button>
-                {paymentCountdown !== null && (
-                  <div style={{
-                    marginTop: 10,
-                    padding: '10px 14px',
-                    background: 'linear-gradient(135deg, #065F46, #059669)',
-                    borderRadius: 10,
-                    color: '#fff',
-                    fontSize: 13,
-                    textAlign: 'center',
-                    fontWeight: 600,
-                    animation: 'pulse 1s infinite',
-                  }}>
-                    🔒 Simulating secure payment...<br />
-                    <span style={{ fontSize: 22, fontWeight: 800 }}>{paymentCountdown}</span>
-                    <span style={{ fontSize: 12, opacity: 0.8 }}> seconds</span>
-                  </div>
-                )}
               </>
             )}
 
@@ -661,6 +636,54 @@ export default function CourseDetail() {
           </div>
         </aside>
       </div>
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <div className="modal-backdrop" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div className="modal" style={{ background: 'var(--bg)', padding: '30px', borderRadius: '12px', width: '400px', maxWidth: '90%' }}>
+            <h2 style={{ marginBottom: '16px' }}>Confirm Purchase</h2>
+            <p style={{ color: 'var(--text)', marginBottom: '8px' }}>You are purchasing:</p>
+            <h3 style={{ marginBottom: '16px', color: 'var(--text)' }}>{course.title}</h3>
+
+            <div style={{ background: 'var(--surface-hover)', padding: '16px', borderRadius: '8px', marginBottom: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: 'var(--muted)' }}>
+                <span>Course Fee</span>
+                <span>₹149</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text)', fontWeight: 'bold' }}>
+                <span>Total Due</span>
+                <span>₹149</span>
+              </div>
+            </div>
+
+            {paymentCountdown !== null && (
+              <div style={{
+                marginBottom: 20,
+                padding: '10px 14px',
+                background: 'linear-gradient(135deg, #065F46, #059669)',
+                borderRadius: 10,
+                color: '#fff',
+                fontSize: 13,
+                textAlign: 'center',
+                fontWeight: 600,
+              }}>
+                🔒 Simulating secure payment...<br />
+                <span style={{ fontSize: 22, fontWeight: 800 }}>{paymentCountdown}</span>
+                <span style={{ fontSize: 12, opacity: 0.8 }}> seconds</span>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button className="btn outline" style={{ flex: 1 }} onClick={() => setShowConfirmModal(false)} disabled={buttonState === 'processing'}>
+                Cancel
+              </button>
+              <button className="btn primary" style={{ flex: 1, background: '#10b981' }} onClick={startSimulatedPayment} disabled={buttonState === 'processing'}>
+                {paymentCountdown !== null ? `⏳ Simulating (${paymentCountdown}s)...` : buttonState === 'processing' ? 'Processing...' : 'Pay & Start'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
