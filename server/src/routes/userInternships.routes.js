@@ -12,7 +12,7 @@ router.use(requireAuth);
 router.get('/my', async (req, res) => {
     try {
         const applications = await InternshipApplication.find({ userId: req.userId })
-            .populate('internshipId', 'title company thumbnail duration mode status')
+            .populate('internshipId', 'title company thumbnail duration mode status domain')
             .sort({ enrolledAt: -1 });
 
         res.json({ applications });
