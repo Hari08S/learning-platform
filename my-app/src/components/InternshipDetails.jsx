@@ -41,8 +41,14 @@ export default function InternshipDetails() {
     if (loading) return <div className="container" style={{ padding: 48 }}>Loading details...</div>;
     if (!internship) return <div className="container" style={{ padding: 48 }}>Not found.</div>;
 
+    const resolveImage = (imgSrc) => {
+        if (!imgSrc || typeof imgSrc !== 'string') return '/logo.png';
+        if (imgSrc.startsWith('http') || imgSrc.startsWith('/')) return imgSrc;
+        return `/${imgSrc}`;
+    };
+
     const isEnrolled = internshipEnrollments && internshipEnrollments.includes(internship._id);
-    const heroImg = internship.thumbnail || '/logo.png';
+    const heroImg = resolveImage(internship.thumbnail);
 
     const handleApply = async () => {
         if (isProcessing) return;

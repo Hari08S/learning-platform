@@ -43,6 +43,12 @@ function isMeaningfulTitle(t) {
 export default function CertificatesPage() {
   const nav = useNavigate();
 
+  const resolveImage = (imgSrc) => {
+    if (!imgSrc || typeof imgSrc !== 'string') return '/logo.png';
+    if (imgSrc.startsWith('http') || imgSrc.startsWith('/')) return imgSrc;
+    return `/${imgSrc}`;
+  };
+
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
   const [items, setItems] = useState([]); // { purchase, courseMeta, progress }
@@ -271,7 +277,7 @@ export default function CertificatesPage() {
             const showTakeQuiz = rounded === 99;
             const showContinue = true; // keep Continue visible for all (per your UI). If you want to hide on 100%, change this.
 
-            const thumb = meta?.img || '/logo.png';
+            const thumb = resolveImage(meta?.img);
             return (
               <div key={cid} style={{ background: '#fff', borderRadius: 12, padding: 18, boxShadow: '0 8px 30px rgba(2,6,23,0.04)', display: 'flex', alignItems: 'center', gap: 16 }}>
                 <div style={{ width: 120, height: 80, flex: '0 0 120px', borderRadius: 8, overflow: 'hidden', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -357,7 +363,7 @@ export default function CertificatesPage() {
                   <div style={{ width: 120, height: 80, flex: '0 0 120px', borderRadius: 8, overflow: 'hidden', background: '#f3f4f6', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {i.thumbnail ? (
                       <img 
-                        src={i.thumbnail} 
+                        src={resolveImage(i.thumbnail)} 
                         alt={i.title} 
                         onError={(e) => {
                           e.target.style.display = 'none';

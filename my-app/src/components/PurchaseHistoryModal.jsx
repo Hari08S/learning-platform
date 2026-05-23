@@ -9,6 +9,12 @@ export default function PurchaseHistoryModal({ open, onClose }) {
   const [purchases, setPurchases] = useState([]);
   const [err, setErr] = useState('');
 
+  const resolveImage = (imgSrc) => {
+    if (!imgSrc || typeof imgSrc !== 'string') return '/logo.png';
+    if (imgSrc.startsWith('http') || imgSrc.startsWith('/')) return imgSrc;
+    return `/${imgSrc}`;
+  };
+
   useEffect(() => {
     if (!open) return;
     let mounted = true;
@@ -46,7 +52,7 @@ export default function PurchaseHistoryModal({ open, onClose }) {
                   courseId,
                   title: (p.title || '').trim() || 'Course',
                   author: p.author || '',
-                  img: p.img || '/logo.png',
+                  img: resolveImage(p.img),
                   price: p.price,
                   status: p.status || 'active',
                   purchasedAt: p.purchasedAt || null,
@@ -72,7 +78,7 @@ export default function PurchaseHistoryModal({ open, onClose }) {
                 courseId: i._id ? String(i._id) : '',
                 title: i.title || 'Internship',
                 author: i.company || 'Upwise',
-                img: i.thumbnail || '/logo.png',
+                img: resolveImage(i.thumbnail),
                 price: app.amount || 0,
                 status: app.status || 'active',
                 purchasedAt: app.enrolledAt || app.createdAt || null,

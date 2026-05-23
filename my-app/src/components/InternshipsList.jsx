@@ -23,6 +23,12 @@ const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
 export default function InternshipsList() {
     const [domain, setDomain] = useState('All');
     const [mode, setMode] = useState('All');
+
+    const resolveImage = (imgSrc) => {
+        if (!imgSrc || typeof imgSrc !== 'string') return '';
+        if (imgSrc.startsWith('http') || imgSrc.startsWith('/')) return imgSrc;
+        return `/${imgSrc}`;
+    };
     const [internships, setInternships] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -137,7 +143,7 @@ export default function InternshipsList() {
                                 <div className="card-media">
                                     {internship.thumbnail ? (
                                         <img
-                                            src={internship.thumbnail}
+                                            src={resolveImage(internship.thumbnail)}
                                             alt={internship.title}
                                             onError={(e) => {
                                                 e.target.style.display = 'none';
