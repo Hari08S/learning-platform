@@ -150,6 +150,7 @@ const Navbar = ({ loggedIn, setLoggedIn }) => {
                 <li><Link className={getLinkClass("/admin/users")} to="/admin/users">Users</Link></li>
                 <li><Link className={getLinkClass("/admin/courses")} to="/admin/courses">Courses</Link></li>
                 <li><Link className={getLinkClass("/admin/internships")} to="/admin/internships">Internships</Link></li>
+                <li><Link className={getLinkClass("/admin/submissions")} to="/admin/submissions">Submissions</Link></li>
                 <li><Link className={getLinkClass("/admin/purchases")} to="/admin/purchases">Purchases</Link></li>
               </>
             )}

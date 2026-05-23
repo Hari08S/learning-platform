@@ -50,6 +50,7 @@ import AdminCourses from './admin/AdminCourses';
 import AdminPurchases from "./admin/AdminPurchases";
 import AdminProfile from "./admin/AdminProfile";
 import AdminInternships from "./admin/AdminInternships";
+import AdminSubmissions from "./admin/AdminSubmissions";
 
 function Home({ loggedIn }) {
   return (
@@ -281,6 +282,11 @@ function App() {
                 <Route
                   path="profile"
                   element={<AdminProfile />}
+                />
+
+                <Route
+                  path="submissions"
+                  element={<AdminSubmissions />}
                 />
 
               </Route>

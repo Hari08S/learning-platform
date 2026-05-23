@@ -18,6 +18,7 @@ export default function InternshipDetails() {
     const [tab, setTab] = useState('overview');
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [paymentCountdown, setPaymentCountdown] = useState(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -44,7 +45,23 @@ export default function InternshipDetails() {
     const heroImg = internship.thumbnail || '/logo.png';
 
     const handleApply = async () => {
+        if (isProcessing) return;
         setIsProcessing(true);
+        setPaymentCountdown(5);
+
+        let count = 5;
+        const timer = setInterval(async () => {
+            count -= 1;
+            setPaymentCountdown(count);
+            if (count <= 0) {
+                clearInterval(timer);
+                setPaymentCountdown(null);
+                await executeEnrollment();
+            }
+        }, 1000);
+    };
+
+    const executeEnrollment = async () => {
         const token = localStorage.getItem('token');
 
         try {
@@ -59,7 +76,7 @@ export default function InternshipDetails() {
                 throw new Error(data.message || 'Payment/Application failed');
             }
 
-            toast.success('Enrollment successful! Redirecting to portal...');
+            toast.success('🎉 Payment Successful! Internship unlocked.');
             if (setInternshipEnrollments) {
                 setInternshipEnrollments([...(internshipEnrollments || []), internship._id]);
             }
@@ -183,7 +200,7 @@ export default function InternshipDetails() {
                 {/* Sidebar */}
                 <aside className="detail-sidebar">
                     <div className="price-card">
-                        <div className="price">{internship.fee === 0 ? 'Free' : `₹${internship.fee}`}</div>
+                        <div className="price">₹149</div>
                         <div className="trial">Enrollment Process Fee</div>
 
                         {isEnrolled ? (
@@ -229,20 +246,37 @@ export default function InternshipDetails() {
                         <div style={{ background: 'var(--surface-hover)', padding: '16px', borderRadius: '8px', marginBottom: '24px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: 'var(--muted)' }}>
                                 <span>Program Fee</span>
-                                <span>₹{internship.fee}</span>
+                                <span>₹149</span>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text)', fontWeight: 'bold' }}>
                                 <span>Total Due</span>
-                                <span>₹{internship.fee}</span>
+                                <span>₹149</span>
                             </div>
                         </div>
+
+                        {paymentCountdown !== null && (
+                            <div style={{
+                                marginBottom: 20,
+                                padding: '10px 14px',
+                                background: 'linear-gradient(135deg, #065F46, #059669)',
+                                borderRadius: 10,
+                                color: '#fff',
+                                fontSize: 13,
+                                textAlign: 'center',
+                                fontWeight: 600,
+                            }}>
+                                🔒 Simulating secure payment...<br />
+                                <span style={{ fontSize: 22, fontWeight: 800 }}>{paymentCountdown}</span>
+                                <span style={{ fontSize: 12, opacity: 0.8 }}> seconds</span>
+                            </div>
+                        )}
 
                         <div style={{ display: 'flex', gap: '12px' }}>
                             <button className="btn outline" style={{ flex: 1 }} onClick={() => setShowConfirmModal(false)} disabled={isProcessing}>
                                 Cancel
                             </button>
                             <button className="btn primary" style={{ flex: 1, background: '#10b981' }} onClick={handleApply} disabled={isProcessing}>
-                                {isProcessing ? 'Processing...' : 'Pay & Start'}
+                                {paymentCountdown !== null ? `⏳ Simulating (${paymentCountdown}s)...` : isProcessing ? 'Processing...' : 'Pay & Start'}
                             </button>
                         </div>
                     </div>

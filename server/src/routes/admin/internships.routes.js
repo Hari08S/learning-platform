@@ -10,6 +10,20 @@ const User = require('../../models/User');
 
 router.use(requireAuth, requireAdmin);
 
+// GET /api/admin/submissions
+router.get('/submissions', async (req, res) => {
+    try {
+        const submissions = await InternshipSubmission.find()
+            .populate('userId', 'name email avatar')
+            .populate('internshipId', 'title company domain')
+            .sort({ submittedAt: -1 });
+        res.json({ submissions });
+    } catch (error) {
+        console.error('Admin Fetch Submissions Error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 // GET /api/admin/internships
 router.get('/internships', async (req, res) => {
     try {

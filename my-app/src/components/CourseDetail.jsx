@@ -82,7 +82,7 @@ export default function CourseDetail() {
   useEffect(() => {
     if (!course) return;
     const candidate = course.img && typeof course.img === 'string'
-      ? (course.img.startsWith('/') ? course.img : `/${course.img}`)
+      ? (course.img.startsWith('http') || course.img.startsWith('/') ? course.img : `/${course.img}`)
       : '/logo.png';
     const img = new Image();
     img.onload = () => setHeroSrc(candidate);
@@ -353,6 +353,7 @@ export default function CourseDetail() {
   };
 
   const isLessonDone = (lesson, index) => {
+    if (!lesson) return false;
     if (!purchased && index >= 2) return false;
     if (!userProgressForCourse || !userProgressForCourse.completedLessons) return false;
     const doneSet = new Set((userProgressForCourse.completedLessons || []).map(x => String(x)));
@@ -416,9 +417,10 @@ export default function CourseDetail() {
               <>
                 <h2>Course Curriculum</h2>
                 <div className="curriculum">
-                  {(course.curriculum || []).map((ch, index) => {
+                  {(Array.isArray(course.curriculum) ? course.curriculum : []).map((ch, index) => {
+                    if (!ch) return null;
                     const key = ch.id ?? ch._id;
-                    const hasNote = courseNotes.some(n => String(n.courseId) === courseIdResolved() && n.lessonIndex === index && n.content.trim().length > 0);
+                    const hasNote = Array.isArray(courseNotes) && courseNotes.some(n => String(n.courseId) === courseIdResolved() && n.lessonIndex === index && n.content.trim().length > 0);
                     return (
                       <div key={String(key)} style={{ display: 'flex', flexDirection: 'column' }}>
                         <div className="curriculum-item">
@@ -600,7 +602,7 @@ export default function CourseDetail() {
 
         <aside className="detail-sidebar">
           <div className="price-card">
-            <div className="price">₹{course.price}</div>
+            <div className="price">₹149</div>
             <div className="trial">Lifetime Access</div>
 
             {purchased || buttonState === 'purchased' ? (
@@ -610,7 +612,7 @@ export default function CourseDetail() {
                   style={{ background: "#7C3AED", width: "100%", marginTop: 18 }}
                   onClick={() => navigate('/dashboard')}
                 >
-                  {(!userProgressForCourse || userProgressForCourse.percent === 0) ? 'Start Learning →' :
+                  {(!userProgressForCourse || !userProgressForCourse.percent) ? 'Start Learning →' :
                     (userProgressForCourse.percent >= 100) ? 'Review Course ✓' : 'Continue →'}
                 </button>
                 <button className="btn outline" style={{ width: "100%", marginTop: 12 }} onClick={handleCancel}>Cancel Purchase</button>
@@ -627,7 +629,7 @@ export default function CourseDetail() {
                     ? `⏳ Auto-completing in ${paymentCountdown}s...`
                     : buttonState === 'processing'
                     ? 'Processing...'
-                    : `Buy Now — ₹${course.price}`}
+                    : `Buy Now — ₹149`}
                 </button>
                 {paymentCountdown !== null && (
                   <div style={{
