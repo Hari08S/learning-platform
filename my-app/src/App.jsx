@@ -1,3 +1,5 @@
+// src/App.jsx
+
 import React, { useEffect, useState, Suspense } from 'react';
 import './App.css';
 import { Routes, Route, Navigate } from 'react-router-dom';
@@ -13,7 +15,10 @@ import Signup from './components/Signup.jsx';
 import Courses from './components/Courses.jsx';
 import CourseDetail from './components/CourseDetail.jsx';
 import CertificatesPage from './components/CertificatesPage.jsx';
-import Settings from './components/Settings.jsx';
+
+// ✅ FIXED HERE
+import Settings from './components/settings.jsx';
+
 import InternshipsList from './components/InternshipsList.jsx';
 import InternshipDetails from './components/InternshipDetails.jsx';
 import InternPortal from './components/InternPortal.jsx';
@@ -88,19 +93,27 @@ function App() {
         try {
           const token = localStorage.getItem('token');
           if (!token) return;
-          const res = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:4000'}/api/me/xp`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
+
+          const res = await fetch(
+            `${import.meta.env.VITE_API_BASE || 'http://localhost:4000'}/api/me/xp`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`
+              }
+            }
+          );
+
           if (res.ok) {
             const data = await res.json();
             setXPData(data.xp);
           }
-        } catch (err) { }
+        } catch (err) {}
       };
 
-      // Handle daily login XP
+      // Daily login XP
       const today = new Date().toISOString().slice(0, 10);
       const lastLogin = localStorage.getItem('lastLoginDate');
+
       if (lastLogin !== today) {
         localStorage.setItem('lastLoginDate', today);
         addXP(5, "Daily Login Bonus");
@@ -113,28 +126,40 @@ function App() {
   // Restore login state
   useEffect(() => {
     const saved = localStorage.getItem('isLoggedIn');
-    if (saved === 'true') setLoggedIn(true);
+
+    if (saved === 'true') {
+      setLoggedIn(true);
+    }
   }, []);
 
-  // Sync Internship Enrollments from MongoDB
+  // Sync internships
   useEffect(() => {
     if (loggedIn) {
       const fetchMyInternships = async () => {
         try {
-          const res = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:4000'}/api/user/internships/my`, {
-            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-          });
+          const res = await fetch(
+            `${import.meta.env.VITE_API_BASE || 'http://localhost:4000'}/api/user/internships/my`,
+            {
+              headers: {
+                Authorization: `Bearer ${localStorage.getItem('token')}`
+              }
+            }
+          );
+
           if (res.ok) {
             const data = await res.json();
+
             const ids = (data.applications || [])
               .map(app => (app.internshipId?._id || app.internshipId))
               .filter(Boolean);
+
             setInternshipEnrollments(ids);
           }
         } catch (err) {
           console.error("Failed to sync status from DB", err);
         }
       };
+
       fetchMyInternships();
     } else {
       setInternshipEnrollments([]);
@@ -144,12 +169,25 @@ function App() {
   return (
     <ErrorBoundary>
       <ScrollToTop />
-      <Toaster position="top-right" toastOptions={{ duration: 3000, style: { background: '#333', color: '#fff', borderRadius: '10px' } }} />
+
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#333',
+            color: '#fff',
+            borderRadius: '10px'
+          }
+        }}
+      />
+
       <Navbar loggedIn={loggedIn} setLoggedIn={setLoggedIn} />
 
       <main style={{ minHeight: 'calc(100vh - 140px)' }}>
         <Suspense fallback={<LoadingSpinner fullScreen />}>
           <Routes>
+
             {/* PUBLIC ROUTES */}
             <Route path="/" element={<Home loggedIn={loggedIn} />} />
             <Route path="/login" element={<Login setLoggedIn={setLoggedIn} />} />
@@ -159,39 +197,98 @@ function App() {
 
             <Route path="/portfolio/:username" element={<PortfolioPage />} />
 
-            {/* USER PORTAL ROUTES */}
+            {/* USER ROUTES */}
             <Route element={<ProtectedRoute requireAdmin={false} />}>
+
               <Route path="/dashboard" element={<Dashboard />} />
+
               <Route path="/courses" element={<Courses />} />
+
               <Route path="/courses/:id" element={<CourseDetail />} />
+
               <Route path="/certificates" element={<CertificatesPage />} />
-              <Route path="/settings" element={<Settings setLoggedIn={setLoggedIn} />} />
+
+              <Route
+                path="/settings"
+                element={<Settings setLoggedIn={setLoggedIn} />}
+              />
 
               <Route path="/internships" element={<InternshipsList />} />
-              <Route path="/internships/:id" element={<InternshipDetails />} />
-              <Route path="/internships/:id/portal" element={<InternPortal />} />
 
-              <Route path="/courses/:courseId/module/:moduleId" element={<LessonPage />} />
-              <Route path="/courses/:courseId/quiz" element={<QuizPage />} />
+              <Route
+                path="/internships/:id"
+                element={<InternshipDetails />}
+              />
+
+              <Route
+                path="/internships/:id/portal"
+                element={<InternPortal />}
+              />
+
+              <Route
+                path="/courses/:courseId/module/:moduleId"
+                element={<LessonPage />}
+              />
+
+              <Route
+                path="/courses/:courseId/quiz"
+                element={<QuizPage />}
+              />
+
               <Route path="/leaderboard" element={<Leaderboard />} />
-              <Route path="/interview-prep" element={<InterviewPrep />} />
+
+              <Route
+                path="/interview-prep"
+                element={<InterviewPrep />}
+              />
             </Route>
 
             {/* ADMIN ROUTES */}
             <Route element={<ProtectedRoute requireAdmin={true} />}>
-              <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+
+              <Route
+                path="/admin"
+                element={<Navigate to="/admin/dashboard" replace />}
+              />
+
               <Route path="/admin/*" element={<AdminLayout />}>
-                <Route path="dashboard" element={<AdminDashboard />} />
-                <Route path="users" element={<AdminUsers />} />
-                <Route path="courses" element={<AdminCourses />} />
-                <Route path="internships" element={<AdminInternships />} />
-                <Route path="purchases" element={<AdminPurchases />} />
-                <Route path="profile" element={<AdminProfile />} />
+
+                <Route
+                  path="dashboard"
+                  element={<AdminDashboard />}
+                />
+
+                <Route
+                  path="users"
+                  element={<AdminUsers />}
+                />
+
+                <Route
+                  path="courses"
+                  element={<AdminCourses />}
+                />
+
+                <Route
+                  path="internships"
+                  element={<AdminInternships />}
+                />
+
+                <Route
+                  path="purchases"
+                  element={<AdminPurchases />}
+                />
+
+                <Route
+                  path="profile"
+                  element={<AdminProfile />}
+                />
+
               </Route>
             </Route>
 
             {/* FALLBACK */}
             <Route path="*" element={<NotFound />} />
+
           </Routes>
         </Suspense>
       </main>
