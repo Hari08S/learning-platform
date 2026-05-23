@@ -1,11 +1,17 @@
 // server/src/config/cors.js
 
+const defaultOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "https://learning-platform-1-jqby.onrender.com", // production frontend
+];
+
 const allowedOrigins = process.env.FRONTEND_ORIGIN
-  ? process.env.FRONTEND_ORIGIN.split(",")
-  : [
-      "http://localhost:5173",
-      "http://localhost:5174",
-    ];
+  ? [
+      ...process.env.FRONTEND_ORIGIN.split(",").map((o) => o.trim()),
+      ...defaultOrigins,
+    ]
+  : defaultOrigins;
 
 const corsOptions = {
   origin: function (origin, callback) {
