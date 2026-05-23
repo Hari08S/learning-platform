@@ -6,7 +6,7 @@ const mongoose = require('mongoose');
 const Course = require('../models/Course');
 const Internship = require('../models/Internship');
 
-// ─────────── COURSES DATA ───────────
+// // ─────────── COURSES DATA ───────────
 const courses = [
   {
     legacyId: 1,
@@ -17,7 +17,7 @@ const courses = [
     level: "Beginner",
     price: 99,
     priceNumber: 99,
-    img: "/course1.jpeg",
+    img: "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800&auto=format&fit=crop&q=60",
     tag: "tech",
     rating: 4.9,
     isPublished: true,
@@ -42,7 +42,7 @@ const courses = [
     level: "Intermediate",
     price: 99,
     priceNumber: 99,
-    img: "/course2.webp",
+    img: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&auto=format&fit=crop&q=60",
     tag: "marketing",
     rating: 4.8,
     isPublished: true,
@@ -69,7 +69,7 @@ const courses = [
     level: "Beginner",
     price: 99,
     priceNumber: 99,
-    img: "/course3.png",
+    img: "https://images.unsplash.com/photo-1586717791821-3f44a563fa4c?w=800&auto=format&fit=crop&q=60",
     tag: "design",
     rating: 4.9,
     isPublished: true,
@@ -96,7 +96,7 @@ const courses = [
     level: "Advanced",
     price: 99,
     priceNumber: 99,
-    img: "/course4.png",
+    img: "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=800&auto=format&fit=crop&q=60",
     tag: "finance",
     rating: 4.7,
     isPublished: true,
@@ -122,7 +122,7 @@ const courses = [
     level: "Beginner",
     price: 99,
     priceNumber: 99,
-    img: "/course5.jpg",
+    img: "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800&auto=format&fit=crop&q=60",
     tag: "tech",
     rating: 4.9,
     isPublished: true,
@@ -149,7 +149,7 @@ const courses = [
     level: "Beginner",
     price: 99,
     priceNumber: 99,
-    img: "/course6.jpg",
+    img: "https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=800&auto=format&fit=crop&q=60",
     tag: "finance",
     rating: 4.6,
     isPublished: true,
@@ -182,6 +182,7 @@ const internships = [
     fee: 0,
     seats: 5,
     skills: ["React", "JavaScript", "CSS", "Git"],
+    thumbnail: "https://images.unsplash.com/photo-1618401471353-b98aedd07871?w=800&auto=format&fit=crop&q=60",
     mentorName: "Arjun Patel",
     mentorBio: "Senior Frontend Engineer with 8 years of experience at product startups.",
     status: "published",
@@ -202,6 +203,7 @@ const internships = [
     fee: 0,
     seats: 8,
     skills: ["SEO", "Google Analytics", "Content Writing", "Social Media"],
+    thumbnail: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&auto=format&fit=crop&q=60",
     mentorName: "Priya Menon",
     mentorBio: "Digital marketing specialist who has managed campaigns worth ₹50L+ in ad spend.",
     status: "published",
@@ -222,6 +224,7 @@ const internships = [
     fee: 0,
     seats: 4,
     skills: ["Figma", "User Research", "Wireframing", "Prototyping"],
+    thumbnail: "https://images.unsplash.com/photo-1581291518633-83b4ebd1d83e?w=800&auto=format&fit=crop&q=60",
     mentorName: "Ananya Singh",
     mentorBio: "Lead UX designer with experience at top design agencies and product companies.",
     status: "published",
@@ -242,6 +245,7 @@ const internships = [
     fee: 0,
     seats: 6,
     skills: ["Python", "SQL", "Excel", "Tableau", "Data Visualization"],
+    thumbnail: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&auto=format&fit=crop&q=60",
     mentorName: "Rohan Sharma",
     mentorBio: "Data analyst with 6 years of experience in e-commerce and fintech analytics.",
     status: "published",
@@ -262,6 +266,7 @@ const internships = [
     fee: 0,
     seats: 3,
     skills: ["Excel", "Financial Modeling", "Research", "Valuation"],
+    thumbnail: "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=800&auto=format&fit=crop&q=60",
     mentorName: "Vikram Nair",
     mentorBio: "CFA charterholder with 12 years in investment banking and wealth management.",
     status: "published",
@@ -278,24 +283,19 @@ async function seed() {
     await mongoose.connect(process.env.MONGO_URI);
     console.log('✅ Connected to MongoDB');
 
-    // ── Seed Courses ──
-    const existingCourses = await Course.countDocuments();
-    if (existingCourses > 0) {
-      console.log(`ℹ️  ${existingCourses} courses already exist. Skipping course seed.`);
-      console.log('   To re-seed, manually drop the courses collection first.');
-    } else {
-      const inserted = await Course.insertMany(courses);
-      console.log(`✅ Seeded ${inserted.length} courses successfully!`);
-    }
+    // Clean first
+    await Course.deleteMany({});
+    console.log('🗑️  Cleared existing courses.');
+    await Internship.deleteMany({});
+    console.log('🗑️  Cleared existing internships.');
 
-    // ── Seed Internships ──
-    const existingInternships = await Internship.countDocuments();
-    if (existingInternships > 0) {
-      console.log(`ℹ️  ${existingInternships} internships already exist. Skipping internship seed.`);
-    } else {
-      const inserted = await Internship.insertMany(internships);
-      console.log(`✅ Seeded ${inserted.length} internships successfully!`);
-    }
+    // Seed Courses
+    const inserted = await Course.insertMany(courses);
+    console.log(`✅ Seeded ${inserted.length} courses successfully!`);
+
+    // Seed Internships
+    const insertedInt = await Internship.insertMany(internships);
+    console.log(`✅ Seeded ${insertedInt.length} internships successfully!`);
 
     console.log('\n🎉 Database seeding complete!');
     await mongoose.disconnect();
