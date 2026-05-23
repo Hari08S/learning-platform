@@ -11,7 +11,11 @@ const getDailyQuestion = () => {
         hash = dateStr.charCodeAt(i) + ((hash << 5) - hash);
     }
     const index = Math.abs(hash) % allQ.length;
-    return { ...allQ[index], options: [allQ[index].answer, "Dummy option A", "Dummy option B", "Dummy option C"].sort(() => Math.random() - 0.5) };
+    const selectedQ = allQ[index];
+    const opts = selectedQ.options && selectedQ.options.length > 0 
+        ? [...selectedQ.options] 
+        : [selectedQ.answer, "Dummy option A", "Dummy option B", "Dummy option C"];
+    return { ...selectedQ, options: opts.sort(() => Math.random() - 0.5) };
 };
 
 export default function DailyChallenge() {
