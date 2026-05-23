@@ -471,9 +471,9 @@ const Dashboard = () => {
             </div>
             <div style={{ marginTop: 8, color: '#6b7280', fontSize: 13 }}>{percent}% completed</div>
           </div>
-          <div className="card-actions" style={{ marginTop: 12, display: 'flex', gap: 8 }}>
-            <button className="btn primary" onClick={() => nav(`/courses/${c.courseId}`)} style={{ flex: 1, whiteSpace: 'nowrap' }}>Continue</button>
-            <button className="btn outline" onClick={() => handleCancel(c.courseId)} style={{ padding: '8px 14px' }}>Cancel</button>
+          <div className="card-actions" style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <button className="btn primary" onClick={() => nav(`/courses/${c.courseId}`)} style={{ width: '100%', justifyContent: 'center' }}>▶ Continue Course</button>
+            <button className="btn outline" onClick={() => handleCancel(c.courseId)} style={{ width: '100%', justifyContent: 'center', fontSize: 13 }}>Cancel Enrollment</button>
           </div>
         </div>
       </article>

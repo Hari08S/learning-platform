@@ -203,8 +203,9 @@
 }
 
 .kpi-card.revenue {
-  background: var(--upwise-dark);
-  color: var(--white);
+  background: #ecfdf5;
+  border: 2px solid #34d399;
+  color: #065f46;
 }
 
 /* INSIGHTS */
@@ -450,8 +451,19 @@
 }
 
 .stat-card.revenue {
-  background: var(--upwise-dark);
-  color: var(--white);
+  background: #ecfdf5;
+  border: 2px solid #34d399;
+  color: #065f46;
+}
+
+.stat-card.revenue h2 {
+  color: #059669;
+  font-size: 32px;
+}
+
+.stat-card.revenue p {
+  color: #065f46;
+  font-weight: 600;
 }
 
 /* TABLE */
@@ -510,6 +522,15 @@
 .status-badge.cancelled {
   background: #fee2e2;
   color: #b91c1c;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.status-badge.completed {
+  background: #e0f2fe;
+  color: #0369a1;
   padding: 4px 10px;
   border-radius: 999px;
   font-weight: 700;

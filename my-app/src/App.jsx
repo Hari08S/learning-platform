@@ -87,6 +87,9 @@ function App() {
   const addXP = useStore(state => state.addXP);
   const setXPData = useStore(state => state.setXPData);
 
+  // module-level guard so this truly fires once per calendar day, never twice
+  const xpGrantedRef = React.useRef(false);
+
   // Load XP when logging in
   useEffect(() => {
     if (loggedIn) {
@@ -111,13 +114,15 @@ function App() {
         } catch (err) {}
       };
 
-      // Daily login XP
-      const today = new Date().toISOString().slice(0, 10);
-      const lastLogin = localStorage.getItem('lastLoginDate');
-
-      if (lastLogin !== today) {
-        localStorage.setItem('lastLoginDate', today);
-        addXP(5, "Daily Login Bonus");
+      // Daily login XP — only once per calendar day AND once per app session
+      if (!xpGrantedRef.current) {
+        const today = new Date().toISOString().slice(0, 10);
+        const lastLogin = localStorage.getItem('lastLoginDate');
+        if (lastLogin !== today) {
+          xpGrantedRef.current = true;
+          localStorage.setItem('lastLoginDate', today);
+          addXP(5, 'Daily Login Bonus');
+        }
       }
 
       loadXP();
