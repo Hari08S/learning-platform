@@ -442,11 +442,17 @@ const Dashboard = () => {
     } catch (err) { alert(err.message); }
   };
 
+  const resolveImage = (imgSrc) => {
+    if (!imgSrc || typeof imgSrc !== 'string') return '/logo.png';
+    if (imgSrc.startsWith('http') || imgSrc.startsWith('/')) return imgSrc;
+    return `/${imgSrc}`;
+  };
+
   const CourseCard = ({ c }) => {
     const rawProgress = c.progress || {};
     let percent = (typeof rawProgress.percent === 'number') ? rawProgress.percent : Number(rawProgress.percent || 0);
     if (percent >= 100 && !rawProgress.quizPassed) percent = 99;
-    const thumb = c.img && typeof c.img === 'string' ? c.img : '/logo.png';
+    const thumb = resolveImage(c.img);
     const tag = (c.raw && c.raw.tag) || 'Course';
     const level = (c.raw && c.raw.level) || 'All Levels';
     return (
@@ -580,7 +586,7 @@ const Dashboard = () => {
             {internships.map((app) => {
               const i = app.internshipId;
               if (!i) return null;
-              const thumb = i.thumbnail || '/logo.png';
+              const thumb = resolveImage(i.thumbnail);
               const pct = applicationProgress => typeof applicationProgress === 'number' ? applicationProgress : 0;
               const isCompleted = app.status === 'completed';
 

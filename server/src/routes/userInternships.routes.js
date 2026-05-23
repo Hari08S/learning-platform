@@ -136,6 +136,19 @@ router.post('/:id/submit/:taskIndex', async (req, res) => {
                 status: 'pending'
             });
             await submission.save();
+
+            // Log activity: completing internship tasks shows 120 minutes of effort in heatmap!
+            try {
+                const DailyActivity = require('../models/DailyActivity');
+                const date = new Date().toISOString().split('T')[0];
+                await DailyActivity.findOneAndUpdate(
+                    { userId: req.userId, date },
+                    { $inc: { minutes: 120 } }, // 120 minutes (2 hours) of study/work effort!
+                    { new: true, upsert: true }
+                );
+            } catch (e) {
+                console.error("Failed to auto-log DailyActivity inside internship submit", e);
+            }
         }
 
         res.json({ message: 'Task submitted', submission });

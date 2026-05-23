@@ -112,6 +112,19 @@ router.post('/me/progress/mark-lesson', requireAuth, async (req, res, next) => {
 
             // Add XP for completing a lesson (20 XP)
             user.xp = (user.xp || 0) + 20;
+
+            // Log activity: completing course lessons shows minutes in heatmap!
+            try {
+                const DailyActivity = require('../models/DailyActivity');
+                const date = new Date().toISOString().split('T')[0];
+                await DailyActivity.findOneAndUpdate(
+                    { userId, date },
+                    { $inc: { minutes: parseInt(lessonItem.mins, 10) || 10 } },
+                    { new: true, upsert: true }
+                );
+            } catch (e) {
+                console.error("Failed to auto-log DailyActivity inside lesson mark-done", e);
+            }
         }
 
         let newPercent = 0;
