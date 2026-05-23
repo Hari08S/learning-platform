@@ -5,6 +5,16 @@ import '../styles/courses.css';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
 
+const DOMAIN_STYLES = {
+  tech:      { gradient: 'linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%)', icon: '💻' },
+  software:  { gradient: 'linear-gradient(135deg, #1e3a5f 0%, #7c3aed 100%)', icon: '🖥️' },
+  data:      { gradient: 'linear-gradient(135deg, #064e3b 0%, #10b981 100%)', icon: '📊' },
+  marketing: { gradient: 'linear-gradient(135deg, #7c2d12 0%, #f97316 100%)', icon: '📣' },
+  design:    { gradient: 'linear-gradient(135deg, #4c1d95 0%, #ec4899 100%)', icon: '🎨' },
+  finance:   { gradient: 'linear-gradient(135deg, #14532d 0%, #22c55e 100%)', icon: '💰' },
+  other:     { gradient: 'linear-gradient(135deg, #1e293b 0%, #64748b 100%)', icon: '🏢' },
+};
+
 const normId = (v) => {
   if (!v && v !== 0) return '';
   if (typeof v === 'object') return String(v._id ?? v.id ?? '');
@@ -265,7 +275,12 @@ export default function CertificatesPage() {
             return (
               <div key={cid} style={{ background: '#fff', borderRadius: 12, padding: 18, boxShadow: '0 8px 30px rgba(2,6,23,0.04)', display: 'flex', alignItems: 'center', gap: 16 }}>
                 <div style={{ width: 120, height: 80, flex: '0 0 120px', borderRadius: 8, overflow: 'hidden', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <img src={thumb} alt={meta?.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img 
+                    src={thumb} 
+                    alt={meta?.title} 
+                    onError={(e) => { e.target.src = '/logo.png'; }}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                  />
                 </div>
 
                 <div style={{ flex: 1 }}>
@@ -336,12 +351,36 @@ export default function CertificatesPage() {
             {internshipItems.map((app) => {
               const i = app.internshipId;
               if (!i) return null;
-              const thumb = i.thumbnail || '/logo.png';
 
               return (
                 <div key={app._id} style={{ background: '#fff', borderRadius: 12, padding: 18, boxShadow: '0 8px 30px rgba(2,6,23,0.04)', display: 'flex', alignItems: 'center', gap: 16 }}>
-                  <div style={{ width: 120, height: 80, flex: '0 0 120px', borderRadius: 8, overflow: 'hidden', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <img src={thumb} alt={i.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <div style={{ width: 120, height: 80, flex: '0 0 120px', borderRadius: 8, overflow: 'hidden', background: '#f3f4f6', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {i.thumbnail ? (
+                      <img 
+                        src={i.thumbnail} 
+                        alt={i.title} 
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
+                        }}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} 
+                      />
+                    ) : null}
+                    <div
+                      style={{
+                        display: i.thumbnail ? 'none' : 'flex',
+                        width: '100%',
+                        height: '100%',
+                        background: (DOMAIN_STYLES[i.domain] || DOMAIN_STYLES.other).gradient,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexDirection: 'column',
+                      }}
+                    >
+                      <span style={{ fontSize: '24px' }}>
+                        {(DOMAIN_STYLES[i.domain] || DOMAIN_STYLES.other).icon}
+                      </span>
+                    </div>
                   </div>
 
                   <div style={{ flex: 1 }}>
