@@ -55,11 +55,10 @@ export default function AdminPurchases() {
 
   /* ================= STATS ================= */
   const stats = useMemo(() => {
-    const active = purchases.filter(p => p.status === "active");
-    const revenue = active.reduce(
-      (sum, p) => sum + toNumber(p.price),
-      0
-    );
+    // Count all non-cancelled purchases (active + completed) for revenue
+    const valid = purchases.filter(p => p.status !== 'cancelled' && p.status !== 'withdrawn');
+    const active = purchases.filter(p => p.status === 'active');
+    const revenue = valid.reduce((sum, p) => sum + toNumber(p.price), 0);
 
     return {
       total: purchases.length,
@@ -73,12 +72,12 @@ export default function AdminPurchases() {
     const map = {};
 
     purchases.forEach(p => {
-      if (p.status !== "active" || !p.purchasedAt) return;
-
-      const d = new Date(p.purchasedAt);
-      const key = `${d.getFullYear()}-${d.getMonth()}`;
-
-      map[key] = (map[key] || 0) + toNumber(p.price);
+      // Include active AND completed purchases in monthly revenue chart
+      if ((p.status === 'active' || p.status === 'completed') && p.purchasedAt) {
+        const d = new Date(p.purchasedAt);
+        const key = `${d.getFullYear()}-${d.getMonth()}`;
+        map[key] = (map[key] || 0) + toNumber(p.price);
+      }
     });
 
     const rows = Object.entries(map).map(([k, v]) => {

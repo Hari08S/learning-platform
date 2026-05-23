@@ -37,6 +37,44 @@ export default function Courses() {
   const itemsPerPage = 6;
 
   const [wishlist, setWishlist] = useState([]);
+  const [purchasedIds, setPurchasedIds] = useState([]); // track purchased course IDs
+  const [progressMap, setProgressMap] = useState({}); // courseId -> progress %
+
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchUserData() {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      try {
+        // Fetch purchased courses + progress in parallel
+        const [purchRes, progRes] = await Promise.all([
+          fetch(`${API_BASE}/api/me/purchases`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`${API_BASE}/api/me/progress`, { headers: { Authorization: `Bearer ${token}` } }),
+        ]);
+        if (purchRes.ok) {
+          const d = await purchRes.json();
+          const purchases = d.purchases || d.purchasedCourses || [];
+          if (!cancelled) {
+            setPurchasedIds(purchases.map(p => String(p.courseId || p._id || p.id)));
+          }
+        }
+        if (progRes.ok) {
+          const d = await progRes.json();
+          const progressList = d.progress || [];
+          if (!cancelled) {
+            const pMap = {};
+            progressList.forEach(p => {
+              const id = String(p.courseId || '');
+              if (id) pMap[id] = Number(p.percent || 0);
+            });
+            setProgressMap(pMap);
+          }
+        }
+      } catch (e) { /* ignore */ }
+    }
+    fetchUserData();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -49,9 +87,7 @@ export default function Courses() {
           const d = await r.json();
           if (!cancelled) setWishlist(d.wishlist || []);
         }
-      } catch (e) {
-        // ignore
-      }
+      } catch (e) { /* ignore */ }
     }
     fetchWishlist();
     return () => { cancelled = true; };
@@ -233,6 +269,9 @@ export default function Courses() {
           {displayedCourses.map((c, idx) => {
             const courseId = c._id || c.id;
             const isWishlisted = wishlist.includes(courseId);
+            const isPurchased = purchasedIds.includes(String(courseId));
+            const progress = progressMap[String(courseId)] ?? 0;
+            const isCompleted = isPurchased && progress >= 100;
             // Mocking free preview randomly on every 3rd course for UI demo
             const hasFreePreview = c.price === '0' || c.price === 0 || idx % 3 === 0;
 
@@ -270,11 +309,29 @@ export default function Courses() {
                   <div className="card-bottom">
                     <div>
                       <div className="price">{c.price === 0 || c.price === '0' ? 'Free' : `₹${c.price}`}</div>
-                      <div className="trial">Start learning today</div>
+                      <div className="trial">
+                        {isPurchased ? (
+                          isCompleted ? '✅ Completed' : `${Math.round(progress)}% completed`
+                        ) : 'Start learning today'}
+                      </div>
                     </div>
-                    <Link to={`/courses/${courseId}`} className="btn course-btn">
-                      View Details
-                    </Link>
+                    {isPurchased ? (
+                      <Link
+                        to={`/courses/${courseId}`}
+                        className="btn course-btn"
+                        style={{
+                          background: isCompleted ? '#059669' : 'var(--upwise-dark)',
+                          color: '#fff',
+                          opacity: 1
+                        }}
+                      >
+                        {isCompleted ? '✅ Completed' : '▶ Continue'}
+                      </Link>
+                    ) : (
+                      <Link to={`/courses/${courseId}`} className="btn course-btn">
+                        View Details
+                      </Link>
+                    )}
                   </div>
                 </div>
               </article>

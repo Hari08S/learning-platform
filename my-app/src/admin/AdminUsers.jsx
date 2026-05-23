@@ -128,10 +128,21 @@ export default function AdminUsers() {
                       </span>
                     </td>
                     <td>
-                      <span className="aut-stat-pill">{activePurchases}<span className="aut-stat-label">/{totalPurchases}</span></span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <span className="aut-stat-pill" title={`${activePurchases} active, ${totalPurchases - activePurchases} cancelled`}>
+                          {totalPurchases} <span className="aut-stat-label">enrolled</span>
+                        </span>
+                        {activePurchases > 0 && <span style={{ fontSize: 11, color: '#059669' }}>✓ {activePurchases} active</span>}
+                      </div>
                     </td>
                     <td>
-                      <span className="aut-stat-pill green">{intActive}<span className="aut-stat-label">/{intTotal}</span></span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <span className="aut-stat-pill green" title={`${intActive} active, ${intDone} completed`}>
+                          {intTotal} <span className="aut-stat-label">enrolled</span>
+                        </span>
+                        {intDone > 0 && <span style={{ fontSize: 11, color: '#059669' }}>🏆 {intDone} done</span>}
+                        {intActive > 0 && intDone === 0 && <span style={{ fontSize: 11, color: '#7c3aed' }}>▶ {intActive} active</span>}
+                      </div>
                     </td>
                     <td>
                       <span className="aut-stat-num">{user.badges?.length || 0}</span>
