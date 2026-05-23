@@ -30,20 +30,24 @@ router.get('/dashboard', requireAdmin, async (req, res, next) => {
         users.forEach(user => {
             (user.purchasedCourses || []).forEach(p => {
                 totalPurchases++;
-                const isActive = p.status !== 'cancelled';
-                if (isActive) {
+                // Count as revenue only if not cancelled
+                const isValid = p.status !== 'cancelled';
+                if (isValid) {
                     activePurchases++;
-                    totalRevenue += 149; // Fixed course pricing ₹149
+                    totalRevenue += 149;
                 }
             });
         });
 
         internshipApps.forEach(app => {
+            // Only count internship apps that have a createdAt (i.e., were actually submitted/paid)
+            if (!app.createdAt) return;
             totalPurchases++;
-            const isActive = app.status !== 'withdrawn' && app.status !== 'cancelled';
-            if (isActive) {
+            // Count as revenue if not withdrawn or cancelled
+            const isValid = app.status !== 'withdrawn' && app.status !== 'cancelled';
+            if (isValid) {
                 activePurchases++;
-                totalRevenue += 149; // Fixed internship pricing ₹149
+                totalRevenue += 149;
             }
         });
 

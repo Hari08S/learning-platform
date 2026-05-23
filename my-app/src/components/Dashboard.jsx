@@ -204,24 +204,26 @@ const Dashboard = () => {
 
       activePurchases.forEach(({ pc, cid }) => {
         if (!cid) return;
+        // pull image from direct field OR from courseMeta (returned by progress endpoint)
+        const imgSrc = pc.img || pc.courseMeta?.img || (typeof pc.courseId === 'object' ? pc.courseId?.img : null) || null;
         if (pc && typeof pc === 'object' && (pc.title || (pc.courseId && typeof pc.courseId === 'object' && pc.courseId.title))) {
           const courseObj = (typeof pc.courseId === 'object' && pc.courseId.title) ? pc.courseId : {};
           items.push({
             courseId: cid,
             title: pc.title || courseObj.title || 'Untitled',
             author: pc.author || courseObj.author || 'Author',
-            img: pc.img || courseObj.img || '/logo.png',
+            img: imgSrc || courseObj.img || '/logo.png',
             price: pc.price != null ? pc.price : '',
             progress: progressMap[cid] || { percent: 0, hoursLearned: 0, quizPassed: false },
             raw: pc
           });
         } else {
-          fetchTasks.push({ cid, pc });
+          fetchTasks.push({ cid, pc, imgSrc });
         }
       });
 
       if (fetchTasks.length) {
-        const fetches = fetchTasks.map(async ({ cid, pc }) => {
+        const fetches = fetchTasks.map(async ({ cid, pc, imgSrc }) => {
           try {
             const r = await fetch(`${API_BASE}/api/courses/${cid}`);
             if (!r.ok) return null;
@@ -232,7 +234,7 @@ const Dashboard = () => {
               courseId: cid,
               title: c.title || pc.title || 'Untitled',
               author: c.author || pc.author || 'Author',
-              img: c.img || pc.img || '/logo.png',
+              img: c.img || c.image || imgSrc || pc.img || '/logo.png',
               price: pc.price != null ? pc.price : (c.price || ''),
               progress: progressMap[cid] || { percent: 0, hoursLearned: 0, quizPassed: false },
               raw: pc
@@ -471,9 +473,30 @@ const Dashboard = () => {
             </div>
             <div style={{ marginTop: 8, color: '#6b7280', fontSize: 13 }}>{percent}% completed</div>
           </div>
-          <div className="card-actions" style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <button className="btn primary" onClick={() => nav(`/courses/${c.courseId}`)} style={{ width: '100%', justifyContent: 'center' }}>▶ Continue Course</button>
-            <button className="btn outline" onClick={() => handleCancel(c.courseId)} style={{ width: '100%', justifyContent: 'center', fontSize: 13 }}>Cancel Enrollment</button>
+          <div className="card-actions" style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <button
+              className="btn primary"
+              onClick={() => nav(`/courses/${c.courseId}`)}
+              style={{ width: '100%', justifyContent: 'center' }}
+            >
+              ▶ Continue Course
+            </button>
+            <button
+              onClick={() => handleCancel(c.courseId)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#9ca3af',
+                fontSize: 12,
+                cursor: 'pointer',
+                padding: '4px 0',
+                textDecoration: 'underline',
+                textAlign: 'center',
+                width: '100%'
+              }}
+            >
+              Cancel Enrollment
+            </button>
           </div>
         </div>
       </article>
