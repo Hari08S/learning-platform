@@ -458,7 +458,7 @@ const Dashboard = () => {
     return (
       <article className="course-card small-card" style={{ marginBottom: 18 }}>
         <div className="card-media" style={{ height: 150, borderRadius: 8, overflow: 'hidden', backgroundColor: '#f3f4f6', position: 'relative' }}>
-          <img src={thumb} alt={c.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img src={thumb} alt={c.title} onError={(e) => { e.target.src = '/logo.png'; }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           <div className="card-tag" style={{ position: 'absolute', top: 10, bottom: 'auto', left: 10, right: 'auto', background: 'rgba(0,0,0,0.6)', color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 12, boxShadow: 'none' }}>{tag}</div>
           <div className="card-tag" style={{ position: 'absolute', bottom: 10, top: 'auto', right: 10, left: 'auto', background: 'rgba(124, 58, 237, 0.9)', color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 12, boxShadow: 'none' }}>{level}</div>
         </div>
@@ -593,7 +593,7 @@ const Dashboard = () => {
               return (
                 <article className="course-card small-card" key={app._id} style={{ marginBottom: 18 }}>
                   <div className="card-media" style={{ height: 150, borderRadius: 8, overflow: 'hidden', backgroundColor: '#f3f4f6', position: 'relative' }}>
-                    <img src={thumb} alt={i.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={thumb} alt={i.title} onError={(e) => { e.target.src = '/logo.png'; }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     <div className="card-tag" style={{ position: 'absolute', top: 10, bottom: 'auto', left: 10, right: 'auto', background: 'rgba(0,0,0,0.6)', color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 12, textTransform: 'capitalize', boxShadow: 'none' }}>{i.domain}</div>
                     <div className="card-tag" style={{ position: 'absolute', bottom: 10, top: 'auto', right: 10, left: 'auto', background: 'rgba(16, 185, 129, 0.9)', color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 12, boxShadow: 'none' }}>{app.status}</div>
                   </div>

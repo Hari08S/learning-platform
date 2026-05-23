@@ -252,6 +252,7 @@ export default function PurchaseHistoryModal({ open, onClose }) {
                   <img
                     src={p.img || '/logo.png'}
                     alt={p.title}
+                    onError={(e) => { e.target.src = '/logo.png'; }}
                     style={{ width: 160, height: 90, objectFit: 'cover', borderRadius: 6 }}
                   />
                   <div style={{ flex: 1 }}>
